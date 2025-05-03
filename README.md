@@ -31,7 +31,7 @@ keybingings:
         x: https://x.com/
 ```
 
-Tool has almost no validation of config. If something goes wrong check **Karabiner-Elements** -> **Settings** ->
+Tool has no validation of config. If something goes wrong check **Karabiner-Elements** -> **Settings** ->
 **Log**.
 
 ## Instalation
