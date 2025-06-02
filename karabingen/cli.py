@@ -61,6 +61,39 @@ def create_option_keybinding_rule(key, binding):
     }
 
 
+def hjkl():
+    return {
+        "description": "Map Option + H/J/K/L to Arrow Keys",
+        "manipulators": [
+            {
+                "type": "basic",
+                "from": {"key_code": "h", "modifiers": {"mandatory": ["option"]}},
+                "to": [{"key_code": "left_arrow"}],
+            },
+            {
+                "type": "basic",
+                "from": {"key_code": "j", "modifiers": {"mandatory": ["option"]}},
+                "to": [{"key_code": "down_arrow"}],
+            },
+            {
+                "type": "basic",
+                "from": {"key_code": "k", "modifiers": {"mandatory": ["option"]}},
+                "to": [{"key_code": "up_arrow"}],
+            },
+            {
+                "type": "basic",
+                "from": {"key_code": "l", "modifiers": {"mandatory": ["option"]}},
+                "to": [{"key_code": "right_arrow"}],
+            },
+            {
+                "type": "basic",
+                "from": {"key_code": "m", "modifiers": {"mandatory": ["option"]}},
+                "to": [{"key_code": "return_or_enter"}],
+            },
+        ],
+    }
+
+
 def create_layer_rules(layers):
     rules = []
     all_layer_keys = [layer["key"] for layer in layers]
@@ -147,6 +180,7 @@ def main():
     for key, binding in option_keybindings.items():
         rules.append(create_option_keybinding_rule(key, binding))
 
+    rules.append(hjkl())
     rules.extend(create_layer_rules(layers))
 
     profile["complex_modifications"]["rules"] = rules
