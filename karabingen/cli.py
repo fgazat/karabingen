@@ -156,6 +156,18 @@ def main():
     option_keybindings = keybindings.get("option", {})
     layers = keybindings.get("layers", [])
 
+    home = Path.home()
+    file_path = home / ".config" / "karabiner" / "karabiner.json"
+
+    # Load existing karabiner config to preserve devices and other settings
+    existing_config = {}
+    if file_path.exists():
+        try:
+            with open(file_path, "r") as f:
+                existing_config = json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            pass
+
     profile = {
         "name": "base",
         "selected": True,
@@ -163,6 +175,17 @@ def main():
         "simple_modifications": [],
         "complex_modifications": {"rules": []},
     }
+
+    # Preserve existing devices configuration if it exists
+    existing_profile = None
+    if "profiles" in existing_config:
+        for p in existing_config["profiles"]:
+            if p.get("name") == "base":
+                existing_profile = p
+                break
+
+    if existing_profile and "devices" in existing_profile:
+        profile["devices"] = existing_profile["devices"]
 
     if fix_c_c:
         profile["simple_modifications"].append(
@@ -186,12 +209,9 @@ def main():
     profile["complex_modifications"]["rules"] = rules
 
     karabiner_config = {
-        "global": {"show_profile_name_in_menu_bar": True},
+        "global": existing_config.get("global", {"show_profile_name_in_menu_bar": True}),
         "profiles": [profile],
     }
-
-    home = Path.home()
-    file_path = home / ".config" / "karabiner" / "karabiner.json"
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "w+") as f:
