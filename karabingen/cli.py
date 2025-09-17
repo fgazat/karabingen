@@ -38,6 +38,39 @@ def create_disable_command_tab_rule():
         ],
     }
 
+def create_fix_g502_rule(safari_only=True, back_button="button4", forward_button="button5"):
+    """
+    Remap G502 side buttons to Safari Back/Forward (⌘[ / ⌘]) by default.
+    If safari_only is True, the rule triggers only when Safari is frontmost.
+    """
+    conditions = []
+    if safari_only:
+        conditions = [
+            {
+                "type": "frontmost_application_if",
+                "bundle_identifiers": ["^com\\.apple\\.Safari$"],
+            }
+        ]
+
+    return {
+        "description": "G502: map side buttons to Safari Back/Forward",
+        "manipulators": [
+            {
+                "type": "basic",
+                "from": {"pointing_button": back_button},
+                "to": [{"key_code": "open_bracket", "modifiers": ["command"]}],
+                "conditions": conditions,
+                "description": "G502 Back → ⌘[",
+            },
+            {
+                "type": "basic",
+                "from": {"pointing_button": forward_button},
+                "to": [{"key_code": "close_bracket", "modifiers": ["command"]}],
+                "conditions": conditions,
+                "description": "G502 Forward → ⌘]",
+            },
+        ],
+    }
 
 def create_option_keybinding_rule(key, binding):
     to = {}
@@ -196,6 +229,15 @@ def main():
         )
 
     rules = [create_hyper_key_rule()]
+    fix_g502_cfg = config.get("fix_g502", {})
+    if fix_g502_cfg.get("enable", False):
+        rules.append(
+            create_fix_g502_rule(
+                safari_only=fix_g502_cfg.get("safari_only", True),
+                back_button=fix_g502_cfg.get("back_button", "button4"),
+                forward_button=fix_g502_cfg.get("forward_button", "button5"),
+            )
+        )
 
     if disable_command_tab:
         rules.append(create_disable_command_tab_rule())

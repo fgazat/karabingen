@@ -5,6 +5,11 @@ CLI tool to generate karabiner.json file from OVERsimplified yaml. Example of ex
 ```yaml
 disable_command_tab: true # disables cmd + tab switches
 fix_c_c: true # fix option-c usage: for fzf usage.
+fix_g502: # fixes back button of g502 mouse in safari
+  enable: true           # turn the rule on/off
+  safari_only: true      # only remap when Safari is frontmost (recommended)
+  back_button: button4   # adjust if your EventViewer shows different codes
+  forward_button: button5
 keybingings:
   option: # option + key keybindings
     '1':
