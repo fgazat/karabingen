@@ -78,6 +78,8 @@ def create_option_keybinding_rule(key, binding):
         to = {"software_function": {"open_application": {"file_path": binding["val"]}}}
     elif binding["type"] == "web":
         to = {"shell_command": f"open {binding['val']}"}
+    elif binding["type"] == "shell":
+        to = {"shell_command": binding["val"]}
 
     return {
         "description": "Open TBD",
@@ -124,6 +126,41 @@ def hjkl():
                 "to": [{"key_code": "return_or_enter"}],
             },
         ],
+    }
+
+
+def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf"):
+    """
+    Create rules for tmux session jumping with digits 1-9 and 0 for editing tmf.
+    Uses option+control by default for easier pressing.
+    """
+    if modifiers is None:
+        modifiers = ["option", "control"]
+
+    manipulators = []
+
+    # 0 opens a temporary tmux window to edit ~/tmf
+    zero_manipulator = {
+        "type": "basic",
+        "from": {"key_code": "0", "modifiers": {"mandatory": modifiers}},
+        "to": [{"shell_command": f"/usr/bin/env zsh -lc 'tmux new-window \"nvim {tmf_path}\"'"}],
+        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+0 → edit tmf in nvim",
+    }
+    manipulators.append(zero_manipulator)
+
+    # 1-9 jump to tmux sessions
+    for digit in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+        manipulator = {
+            "type": "basic",
+            "from": {"key_code": digit, "modifiers": {"mandatory": modifiers}},
+            "to": [{"shell_command": f"/usr/bin/env zsh -lc '{script_path} {digit}'"}],
+            "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{digit} → tmux session {digit}",
+        }
+        manipulators.append(manipulator)
+
+    return {
+        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+Digit → tmux session jump",
+        "manipulators": manipulators,
     }
 
 
@@ -189,6 +226,13 @@ def main():
     option_keybindings = keybindings.get("option", {})
     layers = keybindings.get("layers", [])
 
+    # Tmux jump configuration
+    tmux_cfg = config.get("tmux_jump", {})
+    enable_tmux = tmux_cfg.get("enable", False) if isinstance(tmux_cfg, dict) else config.get("enable_tmux", False)
+    tmux_script_path = tmux_cfg.get("script_path", "~/bin/tmuxjump.sh") if isinstance(tmux_cfg, dict) else "~/bin/tmuxjump.sh"
+    tmux_modifiers = tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
+    tmux_tmf_path = tmux_cfg.get("tmf_path", "~/tmf") if isinstance(tmux_cfg, dict) else "~/tmf"
+
     home = Path.home()
     file_path = home / ".config" / "karabiner" / "karabiner.json"
 
@@ -241,6 +285,9 @@ def main():
 
     if disable_command_tab:
         rules.append(create_disable_command_tab_rule())
+
+    if enable_tmux:
+        rules.append(create_tmux_jump_rule(script_path=tmux_script_path, modifiers=tmux_modifiers, tmf_path=tmux_tmf_path))
 
     for key, binding in option_keybindings.items():
         rules.append(create_option_keybinding_rule(key, binding))
