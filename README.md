@@ -55,6 +55,6 @@ It will write to `~/.config/karabiner/karabiner.json` file.
 
 ## Credits
 * [https://github.com/tekezo](https://github.com/tekezo)
-* [https://github.com/tekezo](https://github.com/pqrs-org/Karabiner-Elements)
+* [https://github.com/pqrs-org/Karabiner-Elements](https://github.com/pqrs-org/Karabiner-Elements)
 * Layers impl is taken from this dude: https://github.com/mxstbr/karabiner, vid with explanation
 https://www.youtube.com/watch?v=j4b_uQX3Vu0[
