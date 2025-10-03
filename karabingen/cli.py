@@ -129,13 +129,15 @@ def hjkl():
     }
 
 
-def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf"):
+def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf", letters=None):
     """
-    Create rules for tmux session jumping with digits 1-9 and 0 for editing tmf.
+    Create rules for tmux session jumping with digits 1-9, 0 for editing tmf, and optional letters.
     Uses option+control by default for easier pressing.
     """
     if modifiers is None:
         modifiers = ["option", "control"]
+    if letters is None:
+        letters = []
 
     manipulators = []
 
@@ -158,8 +160,18 @@ def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_p
         }
         manipulators.append(manipulator)
 
+    # Letters jump to tmux sessions
+    for letter in letters:
+        manipulator = {
+            "type": "basic",
+            "from": {"key_code": letter, "modifiers": {"mandatory": modifiers}},
+            "to": [{"shell_command": f"/usr/bin/env zsh -lc '{script_path} {letter}'"}],
+            "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{letter} → tmux session {letter}",
+        }
+        manipulators.append(manipulator)
+
     return {
-        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+Digit → tmux session jump",
+        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+Key → tmux session jump",
         "manipulators": manipulators,
     }
 
@@ -232,6 +244,7 @@ def main():
     tmux_script_path = tmux_cfg.get("script_path", "~/bin/tmuxjump.sh") if isinstance(tmux_cfg, dict) else "~/bin/tmuxjump.sh"
     tmux_modifiers = tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
     tmux_tmf_path = tmux_cfg.get("tmf_path", "~/tmf") if isinstance(tmux_cfg, dict) else "~/tmf"
+    tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
 
     home = Path.home()
     file_path = home / ".config" / "karabiner" / "karabiner.json"
@@ -287,7 +300,7 @@ def main():
         rules.append(create_disable_command_tab_rule())
 
     if enable_tmux:
-        rules.append(create_tmux_jump_rule(script_path=tmux_script_path, modifiers=tmux_modifiers, tmf_path=tmux_tmf_path))
+        rules.append(create_tmux_jump_rule(script_path=tmux_script_path, modifiers=tmux_modifiers, tmf_path=tmux_tmf_path, letters=tmux_letters))
 
     for key, binding in option_keybindings.items():
         rules.append(create_option_keybinding_rule(key, binding))
