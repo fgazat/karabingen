@@ -38,6 +38,7 @@ def create_disable_command_tab_rule():
         ],
     }
 
+
 def create_fix_g502_rule(safari_only=True, back_button="button4", forward_button="button5"):
     """
     Remap G502 side buttons to Safari Back/Forward (⌘[ / ⌘]) by default.
@@ -71,6 +72,7 @@ def create_fix_g502_rule(safari_only=True, back_button="button4", forward_button
             },
         ],
     }
+
 
 def create_option_keybinding_rule(key, binding):
     to = {}
@@ -241,8 +243,12 @@ def main():
     # Tmux jump configuration
     tmux_cfg = config.get("tmux_jump", {})
     enable_tmux = tmux_cfg.get("enable", False) if isinstance(tmux_cfg, dict) else config.get("enable_tmux", False)
-    tmux_script_path = tmux_cfg.get("script_path", "~/bin/tmuxjump.sh") if isinstance(tmux_cfg, dict) else "~/bin/tmuxjump.sh"
-    tmux_modifiers = tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
+    tmux_script_path = (
+        tmux_cfg.get("script_path", "~/bin/tmuxjump.sh") if isinstance(tmux_cfg, dict) else "~/bin/tmuxjump.sh"
+    )
+    tmux_modifiers = (
+        tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
+    )
     tmux_tmf_path = tmux_cfg.get("tmf_path", "~/tmf") if isinstance(tmux_cfg, dict) else "~/tmf"
     tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
 
@@ -300,7 +306,11 @@ def main():
         rules.append(create_disable_command_tab_rule())
 
     if enable_tmux:
-        rules.append(create_tmux_jump_rule(script_path=tmux_script_path, modifiers=tmux_modifiers, tmf_path=tmux_tmf_path, letters=tmux_letters))
+        rules.append(
+            create_tmux_jump_rule(
+                script_path=tmux_script_path, modifiers=tmux_modifiers, tmf_path=tmux_tmf_path, letters=tmux_letters
+            )
+        )
 
     for key, binding in option_keybindings.items():
         rules.append(create_option_keybinding_rule(key, binding))
