@@ -131,15 +131,20 @@ def hjkl():
     }
 
 
-def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf", letters=None):
+def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf", letters=None, all_letters=False):
     """
     Create rules for tmux session jumping with digits 1-9, 0 for editing tmf, and optional letters.
     Uses option+control by default for easier pressing.
+    If all_letters=True, creates rules for all a-z letters automatically.
     """
     if modifiers is None:
         modifiers = ["option", "control"]
     if letters is None:
         letters = []
+
+    # If all_letters is True, add all a-z to the letters list
+    if all_letters:
+        letters = list("abcdefghijklmnopqrstuvwxyz")
 
     manipulators = []
 
@@ -251,6 +256,7 @@ def main():
     )
     tmux_tmf_path = tmux_cfg.get("tmf_path", "~/tmf") if isinstance(tmux_cfg, dict) else "~/tmf"
     tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
+    tmux_all_letters = tmux_cfg.get("all_letters", False) if isinstance(tmux_cfg, dict) else False
 
     home = Path.home()
     file_path = home / ".config" / "karabiner" / "karabiner.json"
@@ -308,7 +314,11 @@ def main():
     if enable_tmux:
         rules.append(
             create_tmux_jump_rule(
-                script_path=tmux_script_path, modifiers=tmux_modifiers, tmf_path=tmux_tmf_path, letters=tmux_letters
+                script_path=tmux_script_path,
+                modifiers=tmux_modifiers,
+                tmf_path=tmux_tmf_path,
+                letters=tmux_letters,
+                all_letters=tmux_all_letters,
             )
         )
 
