@@ -4,8 +4,9 @@ CLI tool to generate karabiner.json file from OVERsimplified yaml. Example of ex
 
 ```yaml
 disable_command_tab: true # disables cmd + tab switches
+disable_left_ctrl: true # disables left control key (useful with HHKB mode)
 fix_c_c: true # fix option-c usage: for fzf usage.
-use_hhkb: true # HHKB mode: swaps Caps Lock with Left Control
+use_hhkb: true # HHKB mode: maps Caps Lock to Left Control
 hyperkey: caps_lock # key to use as hyperkey (caps_lock, right_command, right_option, right_shift, etc.)
 fix_g502: # fixes back button of g502 mouse in safari
   enable: true           # turn the rule on/off
@@ -47,6 +48,16 @@ Tool has no validation of config. If something goes wrong check **Karabiner-Elem
 Set `use_hhkb: true` to map Caps Lock to Left Control, matching the Happy Hacking Keyboard layout. This completely disables Caps Lock functionality, preventing it from being accidentally activated.
 
 **Note:** If you enable HHKB mode and want to use a hyperkey, you must set `hyperkey` to something other than `caps_lock` (see below).
+
+### Disable Left Control
+Set `disable_left_ctrl: true` to completely disable the physical left control key. This is particularly useful when combined with HHKB mode, allowing you to rely solely on Caps Lock as your Control key.
+
+**Example:** HHKB mode with disabled left control:
+```yaml
+use_hhkb: true
+disable_left_ctrl: true
+hyperkey: right_command
+```
 
 ### Hyperkey Options
 The `hyperkey` setting lets you choose which key becomes your hyperkey. Available options:

@@ -60,6 +60,24 @@ def create_hhkb_mode_rule():
     }
 
 
+def create_disable_left_ctrl_rule():
+    """
+    Disable the left control key completely.
+    Useful in combination with HHKB mode where Caps Lock becomes Control.
+    """
+    return {
+        "description": "Disable Left Control",
+        "manipulators": [
+            {
+                "description": "Left Control -> None",
+                "from": {"key_code": "left_control", "modifiers": {"optional": ["any"]}},
+                "to": [{"key_code": "vk_none"}],
+                "type": "basic",
+            }
+        ],
+    }
+
+
 def create_disable_command_tab_rule():
     return {
         "description": "Disable Command + Tab",
@@ -274,6 +292,7 @@ def main():
 
     config = load_config(sys.argv[1])
     disable_command_tab = config.get("disable_command_tab", False)
+    disable_left_ctrl = config.get("disable_left_ctrl", False)
     fix_c_c = config.get("fix_c_c")
     use_hhkb = config.get("use_hhkb", False)
     hyperkey = config.get("hyperkey", "caps_lock")
@@ -335,7 +354,7 @@ def main():
 
     rules = []
 
-    # Add HHKB mode if requested (swaps caps lock with left control)
+    # Add HHKB mode if requested (maps caps lock to left control)
     # Note: HHKB mode and hyperkey are mutually exclusive if both use caps_lock
     if use_hhkb:
         rules.append(create_hhkb_mode_rule())
@@ -344,6 +363,10 @@ def main():
             rules.append(create_hyper_key_rule(hyperkey))
     else:
         rules.append(create_hyper_key_rule(hyperkey))
+
+    # Disable left control if requested (useful with HHKB mode)
+    if disable_left_ctrl:
+        rules.append(create_disable_left_ctrl_rule())
 
     fix_g502_cfg = config.get("fix_g502", {})
     if fix_g502_cfg.get("enable", False):
