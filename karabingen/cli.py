@@ -10,18 +10,52 @@ def load_config(path="./config.yaml"):
         return yaml.safe_load(f)
 
 
-def create_hyper_key_rule():
+def create_hyper_key_rule(hyper_key="caps_lock"):
+    """
+    Create a hyperkey rule using the specified key.
+
+    Args:
+        hyper_key: The key to use as hyperkey. Options include:
+                   - "caps_lock" (default)
+                   - "right_command"
+                   - "right_option"
+                   - "right_shift"
+                   - "tab" (hold)
+                   - "return_or_enter" (hold)
+                   - "grave_accent_and_tilde" (backtick)
+    """
     return {
-        "description": "Hyper Key",
+        "description": f"Hyper Key ({hyper_key})",
         "manipulators": [
             {
-                "description": "Caps Lock -> Hyper Key",
-                "from": {"key_code": "caps_lock", "modifiers": {"optional": ["any"]}},
+                "description": f"{hyper_key} -> Hyper Key",
+                "from": {"key_code": hyper_key, "modifiers": {"optional": ["any"]}},
                 "to": [{"set_variable": {"name": "hyper", "value": 1}}],
                 "to_after_key_up": [{"set_variable": {"name": "hyper", "value": 0}}],
                 "to_if_alone": [{"key_code": "escape"}],
                 "type": "basic",
             }
+        ],
+    }
+
+
+def create_hhkb_mode_rule():
+    """
+    HHKB mode: Map Caps Lock to Left Control.
+    This is the standard HHKB (Happy Hacking Keyboard) layout.
+
+    Note: This only remaps Caps Lock -> Control, not bidirectional.
+    This prevents Caps Lock from ever being activated accidentally.
+    """
+    return {
+        "description": "HHKB Mode (Caps Lock -> Left Control)",
+        "manipulators": [
+            {
+                "description": "Caps Lock -> Left Control",
+                "from": {"key_code": "caps_lock", "modifiers": {"optional": ["any"]}},
+                "to": [{"key_code": "left_control"}],
+                "type": "basic",
+            },
         ],
     }
 
@@ -241,6 +275,8 @@ def main():
     config = load_config(sys.argv[1])
     disable_command_tab = config.get("disable_command_tab", False)
     fix_c_c = config.get("fix_c_c")
+    use_hhkb = config.get("use_hhkb", False)
+    hyperkey = config.get("hyperkey", "caps_lock")
     keybindings = config.get("keybingings", {})
     option_keybindings = keybindings.get("option", {})
     layers = keybindings.get("layers", [])
@@ -297,7 +333,18 @@ def main():
             }
         )
 
-    rules = [create_hyper_key_rule()]
+    rules = []
+
+    # Add HHKB mode if requested (swaps caps lock with left control)
+    # Note: HHKB mode and hyperkey are mutually exclusive if both use caps_lock
+    if use_hhkb:
+        rules.append(create_hhkb_mode_rule())
+        # If hyperkey is set to caps_lock but HHKB is enabled, skip hyperkey rule
+        if hyperkey != "caps_lock":
+            rules.append(create_hyper_key_rule(hyperkey))
+    else:
+        rules.append(create_hyper_key_rule(hyperkey))
+
     fix_g502_cfg = config.get("fix_g502", {})
     if fix_g502_cfg.get("enable", False):
         rules.append(
