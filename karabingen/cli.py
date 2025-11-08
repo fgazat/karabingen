@@ -20,12 +20,12 @@ def get_config_version(config):
 
 def deploy_tmuxjump_script():
     """
-    Deploy the bundled tmuxjump script to ~/.config/karabiner/scripts/tmuxjump.sh
+    Deploy the bundled tmuxjump Python script to ~/.config/karabiner/scripts/tmuxjump.py
     Returns the path to the deployed script.
     """
     # Get the bundled script path
     package_dir = Path(__file__).parent.parent
-    bundled_script = package_dir / "scripts" / "tmuxjump_alacrity_zsh.sh"
+    bundled_script = package_dir / "scripts" / "tmuxjump.py"
 
     if not bundled_script.exists():
         raise FileNotFoundError(f"Bundled tmuxjump script not found at {bundled_script}")
@@ -33,14 +33,10 @@ def deploy_tmuxjump_script():
     # Target location
     target_dir = Path.home() / ".config" / "karabiner" / "scripts"
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_script = target_dir / "tmuxjump.sh"
+    target_script = target_dir / "tmuxjump.py"
 
-    # Copy the script
     shutil.copy2(bundled_script, target_script)
-
-    # Make it executable
     target_script.chmod(0o755)
-
     print(f"Deployed tmuxjump script to: {target_script}")
     return str(target_script)
 
@@ -219,12 +215,13 @@ def hjkl():
 
 
 def create_tmux_jump_rule(
-    script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf", letters=None, all_letters=False
+    script_path="~/bin/tmuxjump.py", modifiers=None, tmuxjumplist_path="~/tmuxjumplist", letters=None, all_letters=False
 ):
     """
-    Create rules for tmux session jumping with digits 1-9, 0 for editing tmf, and optional letters.
+    Create rules for tmux session jumping with digits 1-9, 0 for editing tmuxjumplist, and optional letters.
     Uses option+control by default for easier pressing.
     If all_letters=True, creates rules for all a-z letters automatically.
+    Calls Python script directly for better cross-platform compatibility.
     """
     if modifiers is None:
         modifiers = ["option", "control"]
@@ -237,12 +234,12 @@ def create_tmux_jump_rule(
 
     manipulators = []
 
-    # 0 opens a temporary tmux window to edit ~/tmf
+    # 0 opens a temporary tmux window to edit ~/tmuxjumplist
     zero_manipulator = {
         "type": "basic",
         "from": {"key_code": "0", "modifiers": {"mandatory": modifiers}},
-        "to": [{"shell_command": f"/usr/bin/env zsh -lc 'tmux new-window \"nvim {tmf_path}\"'"}],
-        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+0 → edit tmf in nvim",
+        "to": [{"shell_command": f"tmux new-window 'nvim {tmuxjumplist_path}'"}],
+        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+0 → edit tmuxjumplist in nvim",
     }
     manipulators.append(zero_manipulator)
 
@@ -251,7 +248,7 @@ def create_tmux_jump_rule(
         manipulator = {
             "type": "basic",
             "from": {"key_code": digit, "modifiers": {"mandatory": modifiers}},
-            "to": [{"shell_command": f"/usr/bin/env zsh -lc '{script_path} {digit}'"}],
+            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {digit} {tmuxjumplist_path}"}],
             "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{digit} → tmux session {digit}",
         }
         manipulators.append(manipulator)
@@ -261,7 +258,7 @@ def create_tmux_jump_rule(
         manipulator = {
             "type": "basic",
             "from": {"key_code": letter, "modifiers": {"mandatory": modifiers}},
-            "to": [{"shell_command": f"/usr/bin/env zsh -lc '{script_path} {letter}'"}],
+            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {letter} {tmuxjumplist_path}"}],
             "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{letter} → tmux session {letter}",
         }
         manipulators.append(manipulator)
@@ -347,12 +344,14 @@ def parse_config_v1(config):
         # Deploy the bundled script
         tmux_script_path = deploy_tmuxjump_script()
     else:
-        tmux_script_path = "~/bin/tmuxjump.sh"
+        tmux_script_path = "~/bin/tmuxjump.py"
 
     tmux_modifiers = (
         tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
     )
-    tmux_tmf_path = tmux_cfg.get("tmf_path", "~/tmf") if isinstance(tmux_cfg, dict) else "~/tmf"
+    tmux_jumplist_path = (
+        tmux_cfg.get("jumplist_path", "~/.tmuxjumplist") if isinstance(tmux_cfg, dict) else "~/tmuxjumplist"
+    )
     tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
     tmux_all_letters = tmux_cfg.get("all_letters", False) if isinstance(tmux_cfg, dict) else False
 
@@ -370,7 +369,7 @@ def parse_config_v1(config):
         "enable_tmux": enable_tmux,
         "tmux_script_path": tmux_script_path,
         "tmux_modifiers": tmux_modifiers,
-        "tmux_tmf_path": tmux_tmf_path,
+        "tmux_tmuxjumplist_path": tmux_jumplist_path,
         "tmux_letters": tmux_letters,
         "tmux_all_letters": tmux_all_letters,
         "fix_g502_cfg": fix_g502_cfg,
@@ -395,20 +394,14 @@ def main():
         description="Generate Karabiner-Elements configuration from YAML config file",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("config_path", help="Path to the YAML configuration file")
     parser.add_argument(
-        "config_path",
-        help="Path to the YAML configuration file"
-    )
-    parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         dest="output_path",
-        help="Path to output karabiner.json file (default: ~/.config/karabiner/karabiner.json)"
+        help="Path to output karabiner.json file (default: ~/.config/karabiner/karabiner.json)",
     )
-    parser.add_argument(
-        "--no-backup",
-        action="store_true",
-        help="Skip creating backup of existing karabiner.json file"
-    )
+    parser.add_argument("--no-backup", action="store_true", help="Skip creating backup of existing karabiner.json file")
 
     args = parser.parse_args()
 
@@ -426,7 +419,7 @@ def main():
     enable_tmux = parsed["enable_tmux"]
     tmux_script_path = parsed["tmux_script_path"]
     tmux_modifiers = parsed["tmux_modifiers"]
-    tmux_tmf_path = parsed["tmux_tmf_path"]
+    tmux_tmuxjumplist_path = parsed["tmux_tmuxjumplist_path"]
     tmux_letters = parsed["tmux_letters"]
     tmux_all_letters = parsed["tmux_all_letters"]
     fix_g502_cfg = parsed["fix_g502_cfg"]
@@ -507,7 +500,7 @@ def main():
             create_tmux_jump_rule(
                 script_path=tmux_script_path,
                 modifiers=tmux_modifiers,
-                tmf_path=tmux_tmf_path,
+                tmuxjumplist_path=tmux_tmuxjumplist_path,
                 letters=tmux_letters,
                 all_letters=tmux_all_letters,
             )
