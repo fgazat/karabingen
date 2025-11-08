@@ -1,5 +1,8 @@
+import argparse
 import json
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -8,6 +11,10 @@ import yaml
 def load_config(path="./config.yaml"):
     with open(path) as f:
         return yaml.safe_load(f)
+
+
+def get_config_version(config):
+    return config.get("version", 1)
 
 
 def create_hyper_key_rule(hyper_key="caps_lock"):
@@ -183,7 +190,9 @@ def hjkl():
     }
 
 
-def create_tmux_jump_rule(script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf", letters=None, all_letters=False):
+def create_tmux_jump_rule(
+    script_path="~/bin/tmuxjump.sh", modifiers=None, tmf_path="~/tmf", letters=None, all_letters=False
+):
     """
     Create rules for tmux session jumping with digits 1-9, 0 for editing tmf, and optional letters.
     Uses option+control by default for easier pressing.
@@ -285,12 +294,11 @@ def create_layer_rules(layers):
     return rules
 
 
-def main():
-    if len(sys.argv) == 1:
-        print("pass config path")
-        exit(1)
-
-    config = load_config(sys.argv[1])
+def parse_config_v1(config):
+    """
+    Parse configuration file version 1.
+    This maintains backward compatibility with existing configs.
+    """
     disable_command_tab = config.get("disable_command_tab", False)
     disable_left_ctrl = config.get("disable_left_ctrl", False)
     fix_c_c = config.get("fix_c_c")
@@ -313,8 +321,87 @@ def main():
     tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
     tmux_all_letters = tmux_cfg.get("all_letters", False) if isinstance(tmux_cfg, dict) else False
 
-    home = Path.home()
-    file_path = home / ".config" / "karabiner" / "karabiner.json"
+    # Fix G502 configuration
+    fix_g502_cfg = config.get("fix_g502", {})
+
+    return {
+        "disable_command_tab": disable_command_tab,
+        "disable_left_ctrl": disable_left_ctrl,
+        "fix_c_c": fix_c_c,
+        "use_hhkb": use_hhkb,
+        "hyperkey": hyperkey,
+        "option_keybindings": option_keybindings,
+        "layers": layers,
+        "enable_tmux": enable_tmux,
+        "tmux_script_path": tmux_script_path,
+        "tmux_modifiers": tmux_modifiers,
+        "tmux_tmf_path": tmux_tmf_path,
+        "tmux_letters": tmux_letters,
+        "tmux_all_letters": tmux_all_letters,
+        "fix_g502_cfg": fix_g502_cfg,
+    }
+
+
+def parse_config(config):
+    """
+    Parse configuration file based on version.
+    Routes to appropriate version-specific parser.
+    """
+    version = get_config_version(config)
+
+    if version == 1:
+        return parse_config_v1(config)
+    else:
+        raise ValueError(f"Unsupported config version: {version}. Supported versions: 1")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate Karabiner-Elements configuration from YAML config file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "config_path",
+        help="Path to the YAML configuration file"
+    )
+    parser.add_argument(
+        "-o", "--output",
+        dest="output_path",
+        help="Path to output karabiner.json file (default: ~/.config/karabiner/karabiner.json)"
+    )
+    parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip creating backup of existing karabiner.json file"
+    )
+
+    args = parser.parse_args()
+
+    config = load_config(args.config_path)
+    parsed = parse_config(config)
+
+    # Extract parsed values
+    disable_command_tab = parsed["disable_command_tab"]
+    disable_left_ctrl = parsed["disable_left_ctrl"]
+    fix_c_c = parsed["fix_c_c"]
+    use_hhkb = parsed["use_hhkb"]
+    hyperkey = parsed["hyperkey"]
+    option_keybindings = parsed["option_keybindings"]
+    layers = parsed["layers"]
+    enable_tmux = parsed["enable_tmux"]
+    tmux_script_path = parsed["tmux_script_path"]
+    tmux_modifiers = parsed["tmux_modifiers"]
+    tmux_tmf_path = parsed["tmux_tmf_path"]
+    tmux_letters = parsed["tmux_letters"]
+    tmux_all_letters = parsed["tmux_all_letters"]
+    fix_g502_cfg = parsed["fix_g502_cfg"]
+
+    # Determine output path
+    if args.output_path:
+        file_path = Path(args.output_path)
+    else:
+        home = Path.home()
+        file_path = home / ".config" / "karabiner" / "karabiner.json"
 
     # Load existing karabiner config to preserve devices and other settings
     existing_config = {}
@@ -368,7 +455,6 @@ def main():
     if disable_left_ctrl:
         rules.append(create_disable_left_ctrl_rule())
 
-    fix_g502_cfg = config.get("fix_g502", {})
     if fix_g502_cfg.get("enable", False):
         rules.append(
             create_fix_g502_rule(
@@ -406,6 +492,15 @@ def main():
     }
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create backup of existing file if it exists and backup is not disabled
+    if not args.no_backup and file_path.exists():
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"backup_{timestamp}.json"
+        backup_path = file_path.parent / backup_name
+        shutil.copy2(file_path, backup_path)
+        print(f"Backup created: {backup_path}")
+
     with open(file_path, "w+") as f:
         json.dump(karabiner_config, f, indent=2)
 

@@ -1,0 +1,47 @@
+version: 1
+disable_command_tab: true
+fix_c_c: true
+use_hhkb: true
+disable_left_ctrl: true
+hyperkey: right_shift
+tmux_jump:
+  enable: true
+  script_path: ~/.local/bin/tmuxjump.sh # default
+  tmf_path: ~/.tmf
+  modifiers: ['right_command']
+  all_letters: true
+fix_g502:
+  enable: true
+  safari_only: true
+  back_button: button4
+  forward_button: button5
+keybingings:
+  option:
+    '1':
+      val: '/Applications/Safari.app'
+      type: 'app'
+    '2':
+      val: '/Applications/Alacritty.app'
+      type: 'app'
+    '3':
+      val: '/Applications/Bear.app'
+      type: 'app'
+  layers:
+    - key: 'o'
+      type: 'app'
+      sub:
+        't': '/Applications/Telegram.app'
+        's': '/Applications/Safari.app'
+        'c': '/Applications/Visual Studio Code.app'
+        'b': '/Applications/Bear.app'
+        'p': '/Applications/Postman.app'
+        'f': '/System/Library/CoreServices/Finder.app'
+        'z': '/Applications/Zen Browser.app'
+    - key: 'w'
+      type: 'web'
+      sub:
+        g: 'https://chatgpt.com/'
+        r: 'https://reddit.com/'
+        y: 'https://news.ycombinator.com'
+        p: https://mxstbr.com/
+        x: https://x.com/
