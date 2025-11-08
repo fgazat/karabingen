@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import shutil
 import sys
 from datetime import datetime
@@ -15,6 +16,33 @@ def load_config(path="./config.yaml"):
 
 def get_config_version(config):
     return config.get("version", 1)
+
+
+def deploy_tmuxjump_script():
+    """
+    Deploy the bundled tmuxjump script to ~/.config/karabiner/scripts/tmuxjump.sh
+    Returns the path to the deployed script.
+    """
+    # Get the bundled script path
+    package_dir = Path(__file__).parent.parent
+    bundled_script = package_dir / "scripts" / "tmuxjump_alacrity_zsh.sh"
+
+    if not bundled_script.exists():
+        raise FileNotFoundError(f"Bundled tmuxjump script not found at {bundled_script}")
+
+    # Target location
+    target_dir = Path.home() / ".config" / "karabiner" / "scripts"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_script = target_dir / "tmuxjump.sh"
+
+    # Copy the script
+    shutil.copy2(bundled_script, target_script)
+
+    # Make it executable
+    target_script.chmod(0o755)
+
+    print(f"Deployed tmuxjump script to: {target_script}")
+    return str(target_script)
 
 
 def create_hyper_key_rule(hyper_key="caps_lock"):
@@ -311,9 +339,16 @@ def parse_config_v1(config):
     # Tmux jump configuration
     tmux_cfg = config.get("tmux_jump", {})
     enable_tmux = tmux_cfg.get("enable", False) if isinstance(tmux_cfg, dict) else config.get("enable_tmux", False)
-    tmux_script_path = (
-        tmux_cfg.get("script_path", "~/bin/tmuxjump.sh") if isinstance(tmux_cfg, dict) else "~/bin/tmuxjump.sh"
-    )
+
+    # Auto-deploy bundled script if no script_path is specified and tmux is enabled
+    if isinstance(tmux_cfg, dict) and "script_path" in tmux_cfg:
+        tmux_script_path = tmux_cfg["script_path"]
+    elif enable_tmux:
+        # Deploy the bundled script
+        tmux_script_path = deploy_tmuxjump_script()
+    else:
+        tmux_script_path = "~/bin/tmuxjump.sh"
+
     tmux_modifiers = (
         tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
     )
