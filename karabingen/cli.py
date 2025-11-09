@@ -215,13 +215,19 @@ def hjkl():
 
 
 def create_tmux_jump_rule(
-    script_path="~/bin/tmuxjump.py", modifiers=None, tmuxjumplist_path="~/tmuxjumplist", letters=None, all_letters=False
+    script_path="~/bin/tmuxjump.py",
+    modifiers=None,
+    tmuxjumplist_path="~/tmuxjumplist",
+    letters=None,
+    all_letters=False,
+    terminal="alacritty"
 ):
     """
     Create rules for tmux session jumping with digits 1-9, 0 for editing tmuxjumplist, and optional letters.
     Uses option+control by default for easier pressing.
     If all_letters=True, creates rules for all a-z letters automatically.
     Calls Python script directly for better cross-platform compatibility.
+    Supports multiple terminals: alacritty, iterm2, terminal, ghostty.
     """
     if modifiers is None:
         modifiers = ["option", "control"]
@@ -234,12 +240,21 @@ def create_tmux_jump_rule(
 
     manipulators = []
 
-    # 0 opens a temporary tmux window to edit ~/tmuxjumplist
+    # 0 opens the tmuxjumplist file in the terminal editor
+    # Use the same terminal as configured for jumping
+    if terminal == "iterm2":
+        edit_command = f"osascript -e 'tell application \"iTerm\" to create window with default profile command \"nvim {tmuxjumplist_path}\"'"
+    elif terminal == "terminal":
+        edit_command = f"osascript -e 'tell application \"Terminal\" to do script \"nvim {tmuxjumplist_path}\"'"
+    else:  # alacritty, ghostty, or fallback
+        # Try to use tmux if available, otherwise open in new terminal window
+        edit_command = f"/opt/homebrew/bin/tmux new-window 'nvim {tmuxjumplist_path}' 2>/dev/null || /usr/bin/env python3 {script_path} 0 {tmuxjumplist_path} {terminal}"
+
     zero_manipulator = {
         "type": "basic",
         "from": {"key_code": "0", "modifiers": {"mandatory": modifiers}},
-        "to": [{"shell_command": f"tmux new-window 'nvim {tmuxjumplist_path}'"}],
-        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+0 → edit tmuxjumplist in nvim",
+        "to": [{"shell_command": edit_command}],
+        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+0 → edit tmuxjumplist",
     }
     manipulators.append(zero_manipulator)
 
@@ -248,7 +263,7 @@ def create_tmux_jump_rule(
         manipulator = {
             "type": "basic",
             "from": {"key_code": digit, "modifiers": {"mandatory": modifiers}},
-            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {digit} {tmuxjumplist_path}"}],
+            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {digit} {tmuxjumplist_path} {terminal}"}],
             "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{digit} → tmux session {digit}",
         }
         manipulators.append(manipulator)
@@ -258,13 +273,13 @@ def create_tmux_jump_rule(
         manipulator = {
             "type": "basic",
             "from": {"key_code": letter, "modifiers": {"mandatory": modifiers}},
-            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {letter} {tmuxjumplist_path}"}],
+            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {letter} {tmuxjumplist_path} {terminal}"}],
             "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{letter} → tmux session {letter}",
         }
         manipulators.append(manipulator)
 
     return {
-        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+Key → tmux session jump",
+        "description": f"{'+'.join([m.capitalize() for m in modifiers])}+Key → tmux session jump ({terminal})",
         "manipulators": manipulators,
     }
 
@@ -354,6 +369,7 @@ def parse_config_v1(config):
     )
     tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
     tmux_all_letters = tmux_cfg.get("all_letters", False) if isinstance(tmux_cfg, dict) else False
+    tmux_terminal = tmux_cfg.get("terminal", "alacritty") if isinstance(tmux_cfg, dict) else "alacritty"
 
     # Fix G502 configuration
     fix_g502_cfg = config.get("fix_g502", {})
@@ -372,6 +388,7 @@ def parse_config_v1(config):
         "tmux_tmuxjumplist_path": tmux_jumplist_path,
         "tmux_letters": tmux_letters,
         "tmux_all_letters": tmux_all_letters,
+        "tmux_terminal": tmux_terminal,
         "fix_g502_cfg": fix_g502_cfg,
     }
 
@@ -422,6 +439,7 @@ def main():
     tmux_tmuxjumplist_path = parsed["tmux_tmuxjumplist_path"]
     tmux_letters = parsed["tmux_letters"]
     tmux_all_letters = parsed["tmux_all_letters"]
+    tmux_terminal = parsed["tmux_terminal"]
     fix_g502_cfg = parsed["fix_g502_cfg"]
 
     # Determine output path
@@ -503,6 +521,7 @@ def main():
                 tmuxjumplist_path=tmux_tmuxjumplist_path,
                 letters=tmux_letters,
                 all_letters=tmux_all_letters,
+                terminal=tmux_terminal,
             )
         )
 

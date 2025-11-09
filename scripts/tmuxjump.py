@@ -3,17 +3,28 @@
 tmuxjump - Jump to tmux sessions via Karabiner-Elements
 Replaces the shell script with a pure Python implementation.
 """
-import logging
 import os
 import re
 import subprocess
 import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(os.path.expanduser("~/tmuxjump.log")), logging.StreamHandler(sys.stderr)],
-)
+# Optional logging - only enable if TMUXJUMP_DEBUG=1 env var is set
+_DEBUG = os.environ.get("TMUXJUMP_DEBUG") == "1"
+
+if _DEBUG:
+    import logging
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler(os.path.expanduser("~/tmuxjump.log")), logging.StreamHandler(sys.stderr)],
+    )
+
+
+def log_debug(msg):
+    """Lightweight debug logging - only active if TMUXJUMP_DEBUG=1"""
+    if _DEBUG:
+        logging.debug(msg)
 
 
 def error_exit(msg, code=1):
@@ -41,6 +52,41 @@ def run_osascript(script):
     return result.stdout.strip(), result.returncode
 
 
+def _parse_key_mapping(keyname, rest, sessions, dirs, num_map):
+    """Parse a line with key mapping format: key:name or key:name:dir"""
+    # Skip if key already mapped
+    if keyname in num_map:
+        return
+
+    # Check if rest contains directory: "name:dir"
+    if ":" not in rest:
+        sessions.append(rest)
+        num_map[keyname] = rest
+        log_debug(f"Parsed key mapping: key={keyname} name={rest}")
+        return
+
+    sname, srawdir = rest.split(":", 1)
+    sdir = os.path.expanduser(srawdir)
+    sessions.append(sname)
+    dirs[sname] = sdir
+    num_map[keyname] = sname
+    log_debug(f"Parsed key mapping: key={keyname} name={sname} dir={sdir}")
+
+
+def _parse_session_line(line, sessions, dirs):
+    """Parse a line without key mapping: name or name:dir"""
+    if ":" not in line:
+        sessions.append(line)
+        log_debug(f"Parsed session: name={line}")
+        return
+
+    sname, srawdir = line.split(":", 1)
+    sdir = os.path.expanduser(srawdir)
+    sessions.append(sname)
+    dirs[sname] = sdir
+    log_debug(f"Parsed session: name={sname} dir={sdir}")
+
+
 def parse_tmuxjumplist_file(menu_file):
     """
     Parse ~/.tmuxjumplist file and return:
@@ -57,47 +103,20 @@ def parse_tmuxjumplist_file(menu_file):
 
     with open(menu_file, "r") as f:
         for line in f:
-            # Strip whitespace
             line = line.strip()
 
             # Skip empty lines and comments
             if not line or line.startswith("#"):
                 continue
 
-            # Check if line starts with key (letter or number): "key:rest"
+            # Try to match key mapping format: "key:rest"
             match = re.match(r"^([0-9a-zA-Z]+):(.+)$", line)
             if match:
                 keyname = match.group(1)
                 rest = match.group(2)
-
-                # Only use first occurrence of each key
-                if keyname not in num_map:
-                    # Check if rest contains directory: "name:dir"
-                    if ":" in rest:
-                        sname, srawdir = rest.split(":", 1)
-                        # Expand tilde
-                        sdir = os.path.expanduser(srawdir)
-                        sessions.append(sname)
-                        dirs[sname] = sdir
-                        num_map[keyname] = sname
-                        logging.debug(f"Parsed key mapping: key={keyname} name={sname} dir={sdir}")
-                    else:
-                        sessions.append(rest)
-                        num_map[keyname] = rest
-                        logging.debug(f"Parsed key mapping: key={keyname} name={rest}")
-
-            # No key prefix, check if it's "name:dir"
-            elif ":" in line:
-                sname, srawdir = line.split(":", 1)
-                sdir = os.path.expanduser(srawdir)
-                sessions.append(sname)
-                dirs[sname] = sdir
-                logging.debug(f"Parsed session: name={sname} dir={sdir}")
-
-            # Just a name
+                _parse_key_mapping(keyname, rest, sessions, dirs, num_map)
             else:
-                sessions.append(line)
-                logging.debug(f"Parsed session: name={line}")
+                _parse_session_line(line, sessions, dirs)
 
     return sessions, dirs, num_map
 
@@ -107,7 +126,7 @@ def get_session_and_dir(index, sessions, dirs, num_map):
     # If NUM_MAP has this index, use it; otherwise fall back to array index
     if index in num_map:
         session = num_map[index]
-        logging.debug(f"Resolved index '{index}' via key mapping to session '{session}'")
+        log_debug(f"Resolved index '{index}' via key mapping to session '{session}'")
     else:
         # Try to convert index to integer for array access
         try:
@@ -115,20 +134,20 @@ def get_session_and_dir(index, sessions, dirs, num_map):
             if idx >= len(sessions):
                 error_exit(f"Index {idx} out of range (have {len(sessions)} sessions)", 65)
             session = sessions[idx]
-            logging.debug(f"Resolved index {idx} via array to session '{session}'")
+            log_debug(f"Resolved index {idx} via array to session '{session}'")
         except (ValueError, IndexError):
             error_exit(f"Invalid index: {index}", 65)
 
     # Determine directory
     if session in dirs:
         directory = dirs[session]
-        logging.debug(f"Using configured directory for session '{session}': {directory}")
+        log_debug(f"Using configured directory for session '{session}': {directory}")
     elif os.path.isdir(os.path.expanduser(f"~/{session}")):
         directory = os.path.expanduser(f"~/{session}")
-        logging.debug(f"Using default directory for session '{session}': {directory}")
+        log_debug(f"Using default directory for session '{session}': {directory}")
     else:
         directory = os.path.expanduser("~")
-        logging.debug(f"Using home directory for session '{session}'")
+        log_debug(f"Using home directory for session '{session}'")
 
     return session, directory
 
@@ -137,10 +156,10 @@ def ensure_tmux_session(tmux_bin, session, directory):
     """Ensure tmux session exists (create if needed)"""
     _, retcode = run_command(f'"{tmux_bin}" has-session -t "{session}" 2>/dev/null')
     if retcode != 0:
-        logging.debug(f"Creating new tmux session '{session}' in directory {directory}")
+        log_debug(f"Creating new tmux session '{session}' in directory {directory}")
         run_command(f'"{tmux_bin}" new-session -d -s "{session}" -c "{directory}"')
     else:
-        logging.debug(f"Tmux session '{session}' already exists")
+        log_debug(f"Tmux session '{session}' already exists")
 
 
 def get_most_recent_client(tmux_bin):
@@ -152,20 +171,20 @@ def get_most_recent_client(tmux_bin):
     return output
 
 
-def switch_existing_client(tmux_bin, client, session):
-    """Switch existing tmux client to session and focus Alacritty"""
+def switch_existing_client(tmux_bin, client, session, terminal_app):
+    """Switch existing tmux client to session and focus terminal"""
     run_command(f'"{tmux_bin}" switch-client -c "{client}" -t "{session}"')
-    run_command("/usr/bin/open -a Alacritty", check=False)
+    run_command(f"/usr/bin/open -a {terminal_app}", check=False)
 
 
-def count_alacritty_windows():
-    """Count Alacritty windows using AppleScript"""
-    script = """
+def count_terminal_windows(terminal_app):
+    """Count terminal windows using AppleScript"""
+    script = f"""
 tell application "System Events"
-  set isRunning to (exists process "Alacritty")
+  set isRunning to (exists process "{terminal_app}")
   if isRunning then
     try
-      set winCount to count windows of process "Alacritty"
+      set winCount to count windows of process "{terminal_app}"
     on error
       set winCount to 0
     end try
@@ -182,35 +201,60 @@ return winCount
         return 0
 
 
-def type_into_alacritty(session):
-    """Focus Alacritty and type tmux attach command"""
+def type_into_terminal(terminal_app, session, tmux_bin):
+    """Focus terminal and type tmux attach command"""
     script = f"""
-tell application "Alacritty" to activate
+tell application "{terminal_app}" to activate
 delay 0.05
 tell application "System Events"
-  keystroke "tmux attach -t {session}"
+  keystroke "{tmux_bin} attach -t {session}"
   key code 36
 end tell
 """
     run_osascript(script)
 
 
-def create_new_window(alacritty_bin, tmux_bin, session):
-    """Create new Alacritty window attached to session"""
-    cmd = [alacritty_bin, "-e", tmux_bin, "attach", "-t", session]
-    os.execvp(alacritty_bin, cmd)
+def create_new_window(terminal_type, terminal_bin, tmux_bin, session):
+    """Create new terminal window attached to session"""
+    if terminal_type in ["alacritty", "ghostty"]:
+        cmd = [terminal_bin, "-e", tmux_bin, "attach", "-t", session]
+        os.execvp(terminal_bin, cmd)
+    elif terminal_type == "iterm2":
+        script = f"""
+tell application "iTerm"
+    create window with default profile command "{tmux_bin} attach -t {session}"
+end tell
+"""
+        run_osascript(script)
+    elif terminal_type == "terminal":
+        script = f"""
+tell application "Terminal"
+    do script "{tmux_bin} attach -t {session}"
+    activate
+end tell
+"""
+        run_osascript(script)
+    else:
+        error_exit(f"Unknown terminal type: {terminal_type}", 1)
 
 
 def main():
-    logging.debug(f"Starting tmuxjump with args: {sys.argv}")
+    log_debug(f"Starting tmuxjump with args: {sys.argv}")
 
     # Configuration
     TMUX_BIN = "/opt/homebrew/bin/tmux"  # Intel: /usr/local/bin/tmux
-    ALACRITTY_BIN = "/Applications/Alacritty.app/Contents/MacOS/alacritty"
+
+    # Terminal configuration defaults
+    TERMINAL_CONFIGS = {
+        "alacritty": {"app_name": "Alacritty", "bin": "/Applications/Alacritty.app/Contents/MacOS/alacritty"},
+        "iterm2": {"app_name": "iTerm", "bin": None},  # Uses AppleScript only
+        "terminal": {"app_name": "Terminal", "bin": None},  # Uses AppleScript only
+        "ghostty": {"app_name": "Ghostty", "bin": "/Applications/Ghostty.app/Contents/MacOS/ghostty"},
+    }
 
     # Parse arguments
     if len(sys.argv) < 2:
-        error_exit(f"Usage: {sys.argv[0]} <key> [jumplist_path]", 64)
+        error_exit(f"Usage: {sys.argv[0]} <key> [jumplist_path] [terminal_type]", 64)
 
     key_input = sys.argv[1]
 
@@ -220,11 +264,22 @@ def main():
     else:
         MENU_FILE = os.path.expanduser("~/.tmuxjumplist")
 
-    logging.debug(f"Using jumplist file: {MENU_FILE}")
+    # Allow terminal type to be specified as third argument or use default
+    if len(sys.argv) >= 4:
+        terminal_type = sys.argv[3]
+    else:
+        terminal_type = "alacritty"
+
+    if terminal_type not in TERMINAL_CONFIGS:
+        error_exit(f"Unknown terminal type: {terminal_type}. Supported: {list(TERMINAL_CONFIGS.keys())}", 64)
+
+    terminal_config = TERMINAL_CONFIGS[terminal_type]
+    log_debug(f"Using terminal: {terminal_type} ({terminal_config['app_name']})")
+    log_debug(f"Using jumplist file: {MENU_FILE}")
 
     # Parse menu file
     sessions, dirs, num_map = parse_tmuxjumplist_file(MENU_FILE)
-    logging.debug(f"Loaded {len(sessions)} sessions, {len(num_map)} key mappings")
+    log_debug(f"Loaded {len(sessions)} sessions, {len(num_map)} key mappings")
 
     # Resolve session and directory
     session, directory = get_session_and_dir(key_input, sessions, dirs, num_map)
@@ -235,24 +290,24 @@ def main():
     # Try to switch existing client
     most_recent_client = get_most_recent_client(TMUX_BIN)
     if most_recent_client:
-        logging.debug(f"Found existing tmux client: {most_recent_client}")
-        logging.debug(f"Switching to session '{session}' and focusing Alacritty")
-        switch_existing_client(TMUX_BIN, most_recent_client, session)
+        log_debug(f"Found existing tmux client: {most_recent_client}")
+        log_debug(f"Switching to session '{session}' and focusing {terminal_config['app_name']}")
+        switch_existing_client(TMUX_BIN, most_recent_client, session, terminal_config["app_name"])
         sys.exit(0)
 
-    logging.debug("No tmux clients found")
+    log_debug("No tmux clients found")
 
-    # No tmux clients. Check if Alacritty has windows
-    window_count = count_alacritty_windows()
-    logging.debug(f"Alacritty window count: {window_count}")
+    # No tmux clients. Check if terminal has windows
+    window_count = count_terminal_windows(terminal_config["app_name"])
+    log_debug(f"{terminal_config['app_name']} window count: {window_count}")
     if window_count > 0:
-        logging.debug(f"Typing attach command into existing Alacritty window")
-        type_into_alacritty(session)
+        log_debug(f"Typing attach command into existing {terminal_config['app_name']} window")
+        type_into_terminal(terminal_config["app_name"], session, TMUX_BIN)
         sys.exit(0)
 
     # Last resort: create new window
-    logging.debug(f"Creating new Alacritty window attached to session '{session}'")
-    create_new_window(ALACRITTY_BIN, TMUX_BIN, session)
+    log_debug(f"Creating new {terminal_config['app_name']} window attached to session '{session}'")
+    create_new_window(terminal_type, terminal_config["bin"], TMUX_BIN, session)
 
 
 if __name__ == "__main__":
