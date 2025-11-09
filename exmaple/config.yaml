@@ -6,7 +6,6 @@ disable_left_ctrl: true
 hyperkey: right_shift
 tmux_jump:
   enable: true
-  script_path: ~/.local/bin/tmuxjump.sh # default
   jumplist_path: ~/tmuxjumplist.txt
   modifiers: ['right_command']
   all_letters: true
