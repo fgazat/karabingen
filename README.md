@@ -3,6 +3,7 @@
 CLI tool to generate karabiner.json file from OVERsimplified yaml. Example of expected config:
 
 ```yaml
+version: 1
 disable_command_tab: true # disables cmd + tab switches
 disable_left_ctrl: true # disables left control key (useful with HHKB mode)
 fix_c_c: true # fix option-c usage: for fzf usage.
