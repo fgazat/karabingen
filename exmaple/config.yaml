@@ -6,7 +6,8 @@ disable_left_ctrl: true
 hyperkey: right_shift
 tmux_jump:
   enable: true
-  jumplist_path: ~/tmuxjumplist.txt
+  terminal: alacritty # or termianl, iterm2, ghosty
+  jumplist_path: ~/.tmf
   modifiers: ['right_command']
   all_letters: true
 fix_g502:

@@ -16,7 +16,8 @@ fix_g502: # fixes back button of g502 mouse in safari
   forward_button: button5
 tmux_jump:
   enable: true
-  jumplist_path: ~/.tmuxjumplist.txt
+  terminal: alacritty # or termianl, iterm2, ghosty
+  jumplist_path: ~/.tmf
   modifiers: ['right_command']
   all_letters: true
 keybingings:
