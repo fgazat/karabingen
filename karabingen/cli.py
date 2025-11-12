@@ -221,7 +221,7 @@ def create_tmux_jump_rule(
     letters=None,
     all_letters=False,
     all_letters_except=None,
-    terminal="alacritty"
+    terminal="alacritty",
 ):
     """
     Create rules for tmux session jumping with digits 1-9, 0 for editing tmuxjumplist, and optional letters.
@@ -250,9 +250,9 @@ def create_tmux_jump_rule(
     # 0 opens the tmuxjumplist file in the terminal editor
     # Use the same terminal as configured for jumping
     if terminal == "iterm2":
-        edit_command = f"osascript -e 'tell application \"iTerm\" to create window with default profile command \"nvim {tmuxjumplist_path}\"'"
+        edit_command = f'osascript -e \'tell application "iTerm" to create window with default profile command "nvim {tmuxjumplist_path}"\''
     elif terminal == "terminal":
-        edit_command = f"osascript -e 'tell application \"Terminal\" to do script \"nvim {tmuxjumplist_path}\"'"
+        edit_command = f'osascript -e \'tell application "Terminal" to do script "nvim {tmuxjumplist_path}"\''
     else:  # alacritty, ghostty, or fallback
         # Try to use tmux if available, otherwise open in new terminal window
         edit_command = f"/opt/homebrew/bin/tmux new-window 'nvim {tmuxjumplist_path}' 2>/dev/null || /usr/bin/env python3 {script_path} 0 {tmuxjumplist_path} {terminal}"
@@ -341,6 +341,37 @@ def create_layer_rules(layers):
     return rules
 
 
+def create_switch_tabs_rule():
+    """
+    Remap ⌘+⌥+H/L to switch tabs.
+    h -> Previous Tab  (⌃+⇧+Tab)
+    l -> Next Tab  (⌃+Tab)
+    """
+    return {
+        "description": "Remap ⌘+⌥+H/L to switch tabs",
+        "manipulators": [
+            {
+                "type": "basic",
+                "from": {
+                    "key_code": "l",
+                    "modifiers": {"mandatory": ["command", "option"], "optional": ["any"]},
+                },
+                "to": [{"key_code": "tab", "modifiers": ["control"]}],
+                "description": "⌘+⌥+l → Next Tab (⌃+Tab)",
+            },
+            {
+                "type": "basic",
+                "from": {
+                    "key_code": "h",
+                    "modifiers": {"mandatory": ["command", "option"], "optional": ["any"]},
+                },
+                "to": [{"key_code": "tab", "modifiers": ["control", "shift"]}],
+                "description": "⌘+⌥+h → Previous Tab (⌃+⇧+Tab)",
+            },
+        ],
+    }
+
+
 def parse_config_v1(config):
     """
     Parse configuration file version 1.
@@ -381,6 +412,7 @@ def parse_config_v1(config):
 
     # Fix G502 configuration
     fix_g502_cfg = config.get("fix_g502", {})
+    switch_tabs_hl = config.get("switch_safari_tabs_hl", False)
 
     return {
         "disable_command_tab": disable_command_tab,
@@ -399,6 +431,7 @@ def parse_config_v1(config):
         "tmux_all_letters_except": tmux_all_letters_except,
         "tmux_terminal": tmux_terminal,
         "fix_g502_cfg": fix_g502_cfg,
+        "switch_tabs_hl": switch_tabs_hl,
     }
 
 
@@ -451,6 +484,7 @@ def main():
     tmux_all_letters_except = parsed["tmux_all_letters_except"]
     tmux_terminal = parsed["tmux_terminal"]
     fix_g502_cfg = parsed["fix_g502_cfg"]
+    switch_tabs_hl_cfg = parsed["switch_tabs_hl"]
 
     # Determine output path
     if args.output_path:
@@ -519,6 +553,8 @@ def main():
                 forward_button=fix_g502_cfg.get("forward_button", "button5"),
             )
         )
+    if switch_tabs_hl_cfg:
+        rules.append(create_switch_tabs_rule())
 
     if disable_command_tab:
         rules.append(create_disable_command_tab_rule())
