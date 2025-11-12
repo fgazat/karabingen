@@ -220,12 +220,14 @@ def create_tmux_jump_rule(
     tmuxjumplist_path="~/tmuxjumplist",
     letters=None,
     all_letters=False,
+    all_letters_except=None,
     terminal="alacritty"
 ):
     """
     Create rules for tmux session jumping with digits 1-9, 0 for editing tmuxjumplist, and optional letters.
     Uses option+control by default for easier pressing.
     If all_letters=True, creates rules for all a-z letters automatically.
+    If all_letters_except is provided, creates rules for all letters except the specified ones.
     Calls Python script directly for better cross-platform compatibility.
     Supports multiple terminals: alacritty, iterm2, terminal, ghostty.
     """
@@ -234,8 +236,13 @@ def create_tmux_jump_rule(
     if letters is None:
         letters = []
 
+    # If all_letters_except is provided, use all letters except the specified ones
+    if all_letters_except is not None:
+        all_alphabet = set("abcdefghijklmnopqrstuvwxyz")
+        excluded = set(all_letters_except)
+        letters = sorted(list(all_alphabet - excluded))
     # If all_letters is True, add all a-z to the letters list
-    if all_letters:
+    elif all_letters:
         letters = list("abcdefghijklmnopqrstuvwxyz")
 
     manipulators = []
@@ -369,6 +376,7 @@ def parse_config_v1(config):
     )
     tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
     tmux_all_letters = tmux_cfg.get("all_letters", False) if isinstance(tmux_cfg, dict) else False
+    tmux_all_letters_except = tmux_cfg.get("all_letters_except", None) if isinstance(tmux_cfg, dict) else None
     tmux_terminal = tmux_cfg.get("terminal", "alacritty") if isinstance(tmux_cfg, dict) else "alacritty"
 
     # Fix G502 configuration
@@ -388,6 +396,7 @@ def parse_config_v1(config):
         "tmux_tmuxjumplist_path": tmux_jumplist_path,
         "tmux_letters": tmux_letters,
         "tmux_all_letters": tmux_all_letters,
+        "tmux_all_letters_except": tmux_all_letters_except,
         "tmux_terminal": tmux_terminal,
         "fix_g502_cfg": fix_g502_cfg,
     }
@@ -439,6 +448,7 @@ def main():
     tmux_tmuxjumplist_path = parsed["tmux_tmuxjumplist_path"]
     tmux_letters = parsed["tmux_letters"]
     tmux_all_letters = parsed["tmux_all_letters"]
+    tmux_all_letters_except = parsed["tmux_all_letters_except"]
     tmux_terminal = parsed["tmux_terminal"]
     fix_g502_cfg = parsed["fix_g502_cfg"]
 
@@ -521,6 +531,7 @@ def main():
                 tmuxjumplist_path=tmux_tmuxjumplist_path,
                 letters=tmux_letters,
                 all_letters=tmux_all_letters,
+                all_letters_except=tmux_all_letters_except,
                 terminal=tmux_terminal,
             )
         )
