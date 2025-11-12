@@ -307,7 +307,7 @@ def hjkl():
 
 def create_tmux_jump_rule(
     script_path="~/bin/tmuxjump.py",
-    modifiers=None,
+    modifiers=["hyperkey"],
     tmuxjumplist_path="~/tmuxjumplist",
     letters=None,
     all_letters=False,
@@ -434,7 +434,7 @@ def create_layer_rules(layers: List[LayerConfig]):
 
 def create_switch_tabs_rule():
     """
-    Remap ⌘+⌥+H/L to switch tabs.
+    Remap ⌘+⌥+h and ⌘+⌥+h to switch tabs.
     h -> Previous Tab  (⌃+⇧+Tab)
     l -> Next Tab  (⌃+Tab)
     """
@@ -547,7 +547,6 @@ def main():
         )
 
     rules = []
-
     # Add HHKB mode if requested (maps caps lock to left control)
     # Note: HHKB mode and hyperkey are mutually exclusive if both use caps_lock
     if config.use_hhkb:
