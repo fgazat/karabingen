@@ -1,12 +1,12 @@
 import argparse
 import json
-import os
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
+from pydantic import BaseModel, Field, field_validator
 
 
 def load_config(path="./config.yaml"):
@@ -16,6 +16,97 @@ def load_config(path="./config.yaml"):
 
 def get_config_version(config):
     return config.get("version", 1)
+
+
+# Pydantic models for configuration
+class KeyBinding(BaseModel):
+    """A single key binding configuration."""
+
+    type: Literal["app", "web", "shell"]
+    val: str
+
+
+class LayerConfig(BaseModel):
+    """Configuration for a hyperkey layer."""
+
+    key: str
+    type: Literal["app", "web"]
+    sub: Dict[str, str]
+
+
+class TmuxJumpConfig(BaseModel):
+    """Configuration for tmux session jumping."""
+
+    enable: bool = False
+    script_path: Optional[str] = None
+    modifiers: List[str] = Field(default_factory=lambda: ["option", "control"])
+    jumplist_path: str = "~/.tmuxjumplist"
+    letters: List[str] = Field(default_factory=list)
+    all_letters: bool = False
+    all_letters_except: Optional[List[str]] = None
+    terminal: Literal["alacritty", "iterm2", "terminal", "ghostty"] = "alacritty"
+
+
+class FixG502Config(BaseModel):
+    """Configuration for G502 mouse button remapping."""
+
+    enable: bool = False
+    safari_only: bool = True
+    back_button: str = "button4"
+    forward_button: str = "button5"
+
+
+class KeybindingsConfig(BaseModel):
+    """Configuration for all keybindings."""
+
+    option: Dict[str, KeyBinding] = Field(default_factory=dict)
+    layers: List[LayerConfig] = Field(default_factory=list)
+
+
+class ConfigV1(BaseModel):
+    """Version 1 configuration schema."""
+
+    version: int = 1
+    disable_command_tab: bool = False
+    disable_left_ctrl: bool = False
+    fix_c_c: Optional[bool] = None
+    use_hhkb: bool = False
+    hyperkey: str = "caps_lock"
+    keybingings: KeybindingsConfig = Field(default_factory=KeybindingsConfig)  # Keep typo for backward compat
+    tmux_jump: TmuxJumpConfig = Field(default_factory=TmuxJumpConfig)
+    fix_g502: FixG502Config = Field(default_factory=FixG502Config)
+    switch_safari_tabs_hl: bool = False
+
+    # Legacy field support
+    enable_tmux: Optional[bool] = None
+
+    @field_validator("keybingings", mode="before")
+    @classmethod
+    def handle_keybindings_typo(cls, v):
+        """Handle the 'keybingings' typo in config files."""
+        if isinstance(v, dict):
+            # Convert plain dicts to KeyBinding objects
+            if "option" in v:
+                option = v["option"]
+                if isinstance(option, dict):
+                    for key, val in option.items():
+                        if isinstance(val, dict) and "type" in val and "val" in val:
+                            continue  # Already correct format
+                        else:
+                            # This shouldn't happen but handle gracefully
+                            pass
+            return v
+        return v
+
+    def model_post_init(self, __context: Any) -> None:
+        """Post-initialization to handle legacy fields and auto-deploy."""
+        # Handle legacy enable_tmux field
+        if self.enable_tmux is not None:
+            self.tmux_jump.enable = self.enable_tmux
+
+        # Auto-deploy bundled script if no script_path is specified and tmux is enabled
+        if self.tmux_jump.enable and self.tmux_jump.script_path is None:
+            self.tmux_jump.script_path = deploy_tmuxjump_script()
 
 
 def deploy_tmuxjump_script():
@@ -157,14 +248,14 @@ def create_fix_g502_rule(safari_only=True, back_button="button4", forward_button
     }
 
 
-def create_option_keybinding_rule(key, binding):
+def create_option_keybinding_rule(key: str, binding: KeyBinding):
     to = {}
-    if binding["type"] == "app":
-        to = {"software_function": {"open_application": {"file_path": binding["val"]}}}
-    elif binding["type"] == "web":
-        to = {"shell_command": f"open {binding['val']}"}
-    elif binding["type"] == "shell":
-        to = {"shell_command": binding["val"]}
+    if binding.type == "app":
+        to = {"software_function": {"open_application": {"file_path": binding.val}}}
+    elif binding.type == "web":
+        to = {"shell_command": f"open {binding.val}"}
+    elif binding.type == "shell":
+        to = {"shell_command": binding.val}
 
     return {
         "description": "Open TBD",
@@ -291,14 +382,14 @@ def create_tmux_jump_rule(
     }
 
 
-def create_layer_rules(layers):
+def create_layer_rules(layers: List[LayerConfig]):
     rules = []
-    all_layer_keys = [layer["key"] for layer in layers]
+    all_layer_keys = [layer.key for layer in layers]
 
     for layer in layers:
-        key = layer["key"]
-        sub_bindings = layer["sub"]
-        layer_type = layer["type"]
+        key = layer.key
+        sub_bindings = layer.sub
+        layer_type = layer.type
 
         toggle_rule = {
             "description": f'Hyper Key sublayer "{key}"',
@@ -372,70 +463,15 @@ def create_switch_tabs_rule():
     }
 
 
-def parse_config_v1(config):
+def parse_config_v1(config: dict) -> ConfigV1:
     """
     Parse configuration file version 1.
     This maintains backward compatibility with existing configs.
     """
-    disable_command_tab = config.get("disable_command_tab", False)
-    disable_left_ctrl = config.get("disable_left_ctrl", False)
-    fix_c_c = config.get("fix_c_c")
-    use_hhkb = config.get("use_hhkb", False)
-    hyperkey = config.get("hyperkey", "caps_lock")
-    keybindings = config.get("keybingings", {})
-    option_keybindings = keybindings.get("option", {})
-    layers = keybindings.get("layers", [])
-
-    # Tmux jump configuration
-    tmux_cfg = config.get("tmux_jump", {})
-    enable_tmux = tmux_cfg.get("enable", False) if isinstance(tmux_cfg, dict) else config.get("enable_tmux", False)
-
-    # Auto-deploy bundled script if no script_path is specified and tmux is enabled
-    if isinstance(tmux_cfg, dict) and "script_path" in tmux_cfg:
-        tmux_script_path = tmux_cfg["script_path"]
-    elif enable_tmux:
-        # Deploy the bundled script
-        tmux_script_path = deploy_tmuxjump_script()
-    else:
-        tmux_script_path = "~/bin/tmuxjump.py"
-
-    tmux_modifiers = (
-        tmux_cfg.get("modifiers", ["option", "control"]) if isinstance(tmux_cfg, dict) else ["option", "control"]
-    )
-    tmux_jumplist_path = (
-        tmux_cfg.get("jumplist_path", "~/.tmuxjumplist") if isinstance(tmux_cfg, dict) else "~/tmuxjumplist"
-    )
-    tmux_letters = tmux_cfg.get("letters", []) if isinstance(tmux_cfg, dict) else []
-    tmux_all_letters = tmux_cfg.get("all_letters", False) if isinstance(tmux_cfg, dict) else False
-    tmux_all_letters_except = tmux_cfg.get("all_letters_except", None) if isinstance(tmux_cfg, dict) else None
-    tmux_terminal = tmux_cfg.get("terminal", "alacritty") if isinstance(tmux_cfg, dict) else "alacritty"
-
-    # Fix G502 configuration
-    fix_g502_cfg = config.get("fix_g502", {})
-    switch_tabs_hl = config.get("switch_safari_tabs_hl", False)
-
-    return {
-        "disable_command_tab": disable_command_tab,
-        "disable_left_ctrl": disable_left_ctrl,
-        "fix_c_c": fix_c_c,
-        "use_hhkb": use_hhkb,
-        "hyperkey": hyperkey,
-        "option_keybindings": option_keybindings,
-        "layers": layers,
-        "enable_tmux": enable_tmux,
-        "tmux_script_path": tmux_script_path,
-        "tmux_modifiers": tmux_modifiers,
-        "tmux_tmuxjumplist_path": tmux_jumplist_path,
-        "tmux_letters": tmux_letters,
-        "tmux_all_letters": tmux_all_letters,
-        "tmux_all_letters_except": tmux_all_letters_except,
-        "tmux_terminal": tmux_terminal,
-        "fix_g502_cfg": fix_g502_cfg,
-        "switch_tabs_hl": switch_tabs_hl,
-    }
+    return ConfigV1(**config)
 
 
-def parse_config(config):
+def parse_config(config: dict) -> ConfigV1:
     """
     Parse configuration file based on version.
     Routes to appropriate version-specific parser.
@@ -464,27 +500,8 @@ def main():
 
     args = parser.parse_args()
 
-    config = load_config(args.config_path)
-    parsed = parse_config(config)
-
-    # Extract parsed values
-    disable_command_tab = parsed["disable_command_tab"]
-    disable_left_ctrl = parsed["disable_left_ctrl"]
-    fix_c_c = parsed["fix_c_c"]
-    use_hhkb = parsed["use_hhkb"]
-    hyperkey = parsed["hyperkey"]
-    option_keybindings = parsed["option_keybindings"]
-    layers = parsed["layers"]
-    enable_tmux = parsed["enable_tmux"]
-    tmux_script_path = parsed["tmux_script_path"]
-    tmux_modifiers = parsed["tmux_modifiers"]
-    tmux_tmuxjumplist_path = parsed["tmux_tmuxjumplist_path"]
-    tmux_letters = parsed["tmux_letters"]
-    tmux_all_letters = parsed["tmux_all_letters"]
-    tmux_all_letters_except = parsed["tmux_all_letters_except"]
-    tmux_terminal = parsed["tmux_terminal"]
-    fix_g502_cfg = parsed["fix_g502_cfg"]
-    switch_tabs_hl_cfg = parsed["switch_tabs_hl"]
+    config_dict = load_config(args.config_path)
+    config = parse_config(config_dict)
 
     # Determine output path
     if args.output_path:
@@ -521,7 +538,7 @@ def main():
     if existing_profile and "devices" in existing_profile:
         profile["devices"] = existing_profile["devices"]
 
-    if fix_c_c:
+    if config.fix_c_c:
         profile["simple_modifications"].append(
             {
                 "from": {"key_code": "grave_accent_and_tilde"},
@@ -533,50 +550,50 @@ def main():
 
     # Add HHKB mode if requested (maps caps lock to left control)
     # Note: HHKB mode and hyperkey are mutually exclusive if both use caps_lock
-    if use_hhkb:
+    if config.use_hhkb:
         rules.append(create_hhkb_mode_rule())
         # If hyperkey is set to caps_lock but HHKB is enabled, skip hyperkey rule
-        if hyperkey != "caps_lock":
-            rules.append(create_hyper_key_rule(hyperkey))
+        if config.hyperkey != "caps_lock":
+            rules.append(create_hyper_key_rule(config.hyperkey))
     else:
-        rules.append(create_hyper_key_rule(hyperkey))
+        rules.append(create_hyper_key_rule(config.hyperkey))
 
     # Disable left control if requested (useful with HHKB mode)
-    if disable_left_ctrl:
+    if config.disable_left_ctrl:
         rules.append(create_disable_left_ctrl_rule())
 
-    if fix_g502_cfg.get("enable", False):
+    if config.fix_g502.enable:
         rules.append(
             create_fix_g502_rule(
-                safari_only=fix_g502_cfg.get("safari_only", True),
-                back_button=fix_g502_cfg.get("back_button", "button4"),
-                forward_button=fix_g502_cfg.get("forward_button", "button5"),
+                safari_only=config.fix_g502.safari_only,
+                back_button=config.fix_g502.back_button,
+                forward_button=config.fix_g502.forward_button,
             )
         )
-    if switch_tabs_hl_cfg:
+    if config.switch_safari_tabs_hl:
         rules.append(create_switch_tabs_rule())
 
-    if disable_command_tab:
+    if config.disable_command_tab:
         rules.append(create_disable_command_tab_rule())
 
-    if enable_tmux:
+    if config.tmux_jump.enable:
         rules.append(
             create_tmux_jump_rule(
-                script_path=tmux_script_path,
-                modifiers=tmux_modifiers,
-                tmuxjumplist_path=tmux_tmuxjumplist_path,
-                letters=tmux_letters,
-                all_letters=tmux_all_letters,
-                all_letters_except=tmux_all_letters_except,
-                terminal=tmux_terminal,
+                script_path=config.tmux_jump.script_path,
+                modifiers=config.tmux_jump.modifiers,
+                tmuxjumplist_path=config.tmux_jump.jumplist_path,
+                letters=config.tmux_jump.letters,
+                all_letters=config.tmux_jump.all_letters,
+                all_letters_except=config.tmux_jump.all_letters_except,
+                terminal=config.tmux_jump.terminal,
             )
         )
 
-    for key, binding in option_keybindings.items():
+    for key, binding in config.keybingings.option.items():
         rules.append(create_option_keybinding_rule(key, binding))
 
     rules.append(hjkl())
-    rules.extend(create_layer_rules(layers))
+    rules.extend(create_layer_rules(config.keybingings.layers))
 
     profile["complex_modifications"]["rules"] = rules
 

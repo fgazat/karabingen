@@ -3,7 +3,7 @@ name = "karabingen"
 version = "0.1.0"
 description = "CLI tool to generate Karabiner configuration"
 authors = [{ name = "fgazat", email = "fgazat@yandex.ru" }]
-dependencies = ["pyyaml"]
+dependencies = ["pyyaml", "pydantic>=2.0.0"]
 
 [project.scripts]
 karabingen = "karabingen.cli:main"
