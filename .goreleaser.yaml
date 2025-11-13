@@ -43,6 +43,21 @@ checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
+brews:
+  - name: karabingen
+    repository:
+      owner: fgazat
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/fgazat/karabingen"
+    description: "CLI tool to generate karabiner.json file from simplified YAML"
+    license: "MIT"
+    folder: Formula
+    test: |
+      system "#{bin}/karabingen", "--help"
+    install: |
+      bin.install "karabingen"
+
 release:
   github:
     owner: fgazat
