@@ -134,7 +134,7 @@ func generateKarabinerConfig(configPath, outputPath string, noBackup bool) error
 	}
 
 	// Option keybindings
-	for key, binding := range config.Keybingings.Option {
+	for key, binding := range config.Keybindings.Option {
 		rules = append(rules, createOptionKeybindingRule(key, binding))
 	}
 
@@ -142,7 +142,7 @@ func generateKarabinerConfig(configPath, outputPath string, noBackup bool) error
 	rules = append(rules, createHJKLRule())
 
 	// Layer rules
-	rules = append(rules, createLayerRules(config.Keybingings.Layers)...)
+	rules = append(rules, createLayerRules(config.Keybindings.Layers)...)
 
 	// Set rules in profile
 	profile.ComplexModifications.Rules = rules
