@@ -104,6 +104,8 @@ Using Brew:
 brew install fgazat/tap/karabingen
 ```
 
+Or using go:
+
 ```shell
 go install github.com/fgazat/karabingen@latest
 ```
