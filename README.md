@@ -99,13 +99,13 @@ hyperkey: right_command
 ## Instalation
 
 ```shell
-pipx install karabingen
+go install github.com/fgazat/karabingen@latest
 ```
 
 ## Usage
 
 ```shell
-karabingen [PATH_TO_YAML_CONFIG]
+karabingen generate [PATH_TO_YAML_CONFIG]
 ```
 
 It will write to `~/.config/karabiner/karabiner.json` file.
