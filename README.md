@@ -52,7 +52,27 @@ keybindings:
         x: https://x.com/
 ```
 
-Tool has no validation of config. If something goes wrong check **Karabiner-Elements** -> **Settings** -> **Log**.
+## Instalation
+
+Using Brew:
+
+```shell
+brew install fgazat/tap/karabingen
+```
+
+Or using go:
+
+```shell
+go install github.com/fgazat/karabingen@latest
+```
+
+## Usage
+
+```shell
+karabingen generate [PATH_TO_YAML_CONFIG]
+```
+
+It will write to `~/.config/karabiner/karabiner.json` file.
 
 ## Configuration Options
 
@@ -96,27 +116,6 @@ use_hhkb: true
 hyperkey: right_command
 ```
 
-## Instalation
-
-Using Brew:
-
-```shell
-brew install fgazat/tap/karabingen
-```
-
-Or using go:
-
-```shell
-go install github.com/fgazat/karabingen@latest
-```
-
-## Usage
-
-```shell
-karabingen generate [PATH_TO_YAML_CONFIG]
-```
-
-It will write to `~/.config/karabiner/karabiner.json` file.
 
 ## Credits
 
