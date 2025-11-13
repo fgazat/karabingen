@@ -98,6 +98,12 @@ hyperkey: right_command
 
 ## Instalation
 
+Using Brew:
+
+```shell
+brew install fgazat/tap/karabingen
+```
+
 ```shell
 go install github.com/fgazat/karabingen@latest
 ```
