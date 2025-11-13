@@ -111,7 +111,7 @@ func addBookmark(bookmarkFile string) error {
 
 	// Append new bookmark
 	entry := fmt.Sprintf("%s:%s:%s\n", key, name, pwd)
-	f, err := os.OpenFile(bookmarkFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(bookmarkFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to open bookmark file: %w", err)
 	}
@@ -190,5 +190,5 @@ func removeKeyFromFile(bookmarkFile, keyToRemove string) error {
 	}
 
 	// Write back to file
-	return os.WriteFile(bookmarkFile, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	return os.WriteFile(bookmarkFile, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }

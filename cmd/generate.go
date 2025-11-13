@@ -79,8 +79,7 @@ func generateKarabinerConfig(configPath, outputPath string, noBackup bool) error
 		}
 	}
 
-	// Handle fix_c_c (simple modification)
-	if config.FixCC != nil && *config.FixCC {
+	if config.FixCC {
 		profile.SimpleModifications = append(profile.SimpleModifications, SimpleModification{
 			From: KeyCode{KeyCode: "grave_accent_and_tilde"},
 			To:   []KeyCode{{KeyCode: "non_us_backslash"}},
