@@ -15,7 +15,7 @@ fix_g502:
   safari_only: true
   back_button: button4
   forward_button: button5
-keybingings:
+keybindings:
   option:
     '1':
       val: '/Applications/Safari.app'

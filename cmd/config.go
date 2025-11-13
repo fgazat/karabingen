@@ -54,7 +54,7 @@ type Config struct {
 	FixCC              *bool             `yaml:"fix_c_c"`
 	UseHHKB            bool              `yaml:"use_hhkb"`
 	Hyperkey           string            `yaml:"hyperkey"`
-	Keybingings        KeybindingsConfig `yaml:"keybingings"` // Keep typo for backward compat
+	Keybingings        KeybindingsConfig `yaml:"keybindings"`
 	TmuxJump           TmuxJumpConfig    `yaml:"tmux_jump"`
 	FixG502            FixG502Config     `yaml:"fix_g502"`
 	SwitchSafariTabsHL bool              `yaml:"switch_safari_tabs_hl"`

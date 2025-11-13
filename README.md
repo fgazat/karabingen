@@ -20,7 +20,7 @@ tmux_jump:
   jumplist_path: ~/tmuxjumplist.txt
   modifiers: ['right_command']
   all_letters: true
-keybingings:
+keybindings:
   option:
     '1':
       val: '/Applications/Safari.app'
