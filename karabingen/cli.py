@@ -38,7 +38,6 @@ class TmuxJumpConfig(BaseModel):
     """Configuration for tmux session jumping."""
 
     enable: bool = False
-    script_path: Optional[str] = None
     modifiers: List[str] = Field(default_factory=lambda: ["option", "control"])
     jumplist_path: str = "~/.tmuxjumplist"
     letters: List[str] = Field(default_factory=list)
@@ -99,37 +98,10 @@ class ConfigV1(BaseModel):
         return v
 
     def model_post_init(self, __context: Any) -> None:
-        """Post-initialization to handle legacy fields and auto-deploy."""
+        """Post-initialization to handle legacy fields."""
         # Handle legacy enable_tmux field
         if self.enable_tmux is not None:
             self.tmux_jump.enable = self.enable_tmux
-
-        # Auto-deploy bundled script if no script_path is specified and tmux is enabled
-        if self.tmux_jump.enable and self.tmux_jump.script_path is None:
-            self.tmux_jump.script_path = deploy_tmuxjump_script()
-
-
-def deploy_tmuxjump_script():
-    """
-    Deploy the bundled tmuxjump Python script to ~/.config/karabiner/scripts/tmuxjump.py
-    Returns the path to the deployed script.
-    """
-    # Get the bundled script path
-    package_dir = Path(__file__).parent.parent
-    bundled_script = package_dir / "scripts" / "tmuxjump.py"
-
-    if not bundled_script.exists():
-        raise FileNotFoundError(f"Bundled tmuxjump script not found at {bundled_script}")
-
-    # Target location
-    target_dir = Path.home() / ".config" / "karabiner" / "scripts"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target_script = target_dir / "tmuxjump.py"
-
-    shutil.copy2(bundled_script, target_script)
-    target_script.chmod(0o755)
-    print(f"Deployed tmuxjump script to: {target_script}")
-    return str(target_script)
 
 
 def create_hyper_key_rule(hyper_key="caps_lock"):
@@ -306,7 +278,7 @@ def hjkl():
 
 
 def create_tmux_jump_rule(
-    script_path="~/bin/tmuxjump.py",
+    script_path=None,  # Deprecated, kept for backward compatibility
     modifiers=["hyperkey"],
     tmuxjumplist_path="~/tmuxjumplist",
     letters=None,
@@ -319,7 +291,7 @@ def create_tmux_jump_rule(
     Uses option+control by default for easier pressing.
     If all_letters=True, creates rules for all a-z letters automatically.
     If all_letters_except is provided, creates rules for all letters except the specified ones.
-    Calls Python script directly for better cross-platform compatibility.
+    Calls karabingen tmux switch command for better integration.
     Supports multiple terminals: alacritty, iterm2, terminal, ghostty.
     """
     if modifiers is None:
@@ -346,7 +318,7 @@ def create_tmux_jump_rule(
         edit_command = f'osascript -e \'tell application "Terminal" to do script "nvim {tmuxjumplist_path}"\''
     else:  # alacritty, ghostty, or fallback
         # Try to use tmux if available, otherwise open in new terminal window
-        edit_command = f"/opt/homebrew/bin/tmux new-window 'nvim {tmuxjumplist_path}' 2>/dev/null || /usr/bin/env python3 {script_path} 0 {tmuxjumplist_path} {terminal}"
+        edit_command = f"/opt/homebrew/bin/tmux new-window 'nvim {tmuxjumplist_path}' 2>/dev/null || karabingen tmux switch 0 --jumplist {tmuxjumplist_path} --terminal {terminal}"
 
     zero_manipulator = {
         "type": "basic",
@@ -361,7 +333,7 @@ def create_tmux_jump_rule(
         manipulator = {
             "type": "basic",
             "from": {"key_code": digit, "modifiers": {"mandatory": modifiers}},
-            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {digit} {tmuxjumplist_path} {terminal}"}],
+            "to": [{"shell_command": f"karabingen tmux switch {digit} --jumplist {tmuxjumplist_path} --terminal {terminal}"}],
             "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{digit} → tmux session {digit}",
         }
         manipulators.append(manipulator)
@@ -371,7 +343,7 @@ def create_tmux_jump_rule(
         manipulator = {
             "type": "basic",
             "from": {"key_code": letter, "modifiers": {"mandatory": modifiers}},
-            "to": [{"shell_command": f"/usr/bin/env python3 {script_path} {letter} {tmuxjumplist_path} {terminal}"}],
+            "to": [{"shell_command": f"karabingen tmux switch {letter} --jumplist {tmuxjumplist_path} --terminal {terminal}"}],
             "description": f"{'+'.join([m.capitalize() for m in modifiers])}+{letter} → tmux session {letter}",
         }
         manipulators.append(manipulator)
@@ -484,22 +456,8 @@ def parse_config(config: dict) -> ConfigV1:
         raise ValueError(f"Unsupported config version: {version}. Supported versions: 1")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate Karabiner-Elements configuration from YAML config file",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument("config_path", help="Path to the YAML configuration file")
-    parser.add_argument(
-        "-o",
-        "--output",
-        dest="output_path",
-        help="Path to output karabiner.json file (default: ~/.config/karabiner/karabiner.json)",
-    )
-    parser.add_argument("--no-backup", action="store_true", help="Skip creating backup of existing karabiner.json file")
-
-    args = parser.parse_args()
-
+def cmd_generate(args):
+    """Generate Karabiner-Elements configuration from YAML config file"""
     config_dict = load_config(args.config_path)
     config = parse_config(config_dict)
 
@@ -578,7 +536,6 @@ def main():
     if config.tmux_jump.enable:
         rules.append(
             create_tmux_jump_rule(
-                script_path=config.tmux_jump.script_path,
                 modifiers=config.tmux_jump.modifiers,
                 tmuxjumplist_path=config.tmux_jump.jumplist_path,
                 letters=config.tmux_jump.letters,
@@ -613,6 +570,105 @@ def main():
 
     with open(file_path, "w+") as f:
         json.dump(karabiner_config, f, indent=2)
+
+
+def cmd_tmux_switch(args):
+    """Switch to a tmux session using the key/index from jumplist"""
+    # Import the tmuxjump functions
+    from pathlib import Path as TmuxPath
+    import sys as tmux_sys
+
+    # Import functions from the bundled script
+    package_dir = Path(__file__).parent.parent
+    bundled_script = package_dir / "scripts" / "tmuxjump.py"
+
+    if not bundled_script.exists():
+        print(f"Error: tmuxjump.py not found at {bundled_script}", file=sys.stderr)
+        sys.exit(1)
+
+    # Import the module dynamically
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("tmuxjump", bundled_script)
+    tmuxjump = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tmuxjump)
+
+    # Set up the arguments as if called from command line
+    original_argv = sys.argv
+    sys.argv = [
+        "tmuxjump",
+        args.key,
+        args.jumplist,
+        args.terminal
+    ]
+
+    try:
+        # Call the main function from tmuxjump
+        tmuxjump.main()
+    finally:
+        # Restore original argv
+        sys.argv = original_argv
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Karabingen - Karabiner-Elements configuration generator and utilities",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Generate command (default behavior)
+    generate_parser = subparsers.add_parser(
+        "generate",
+        help="Generate Karabiner-Elements configuration from YAML config file",
+        aliases=["gen", "g"]
+    )
+    generate_parser.add_argument("config_path", help="Path to the YAML configuration file")
+    generate_parser.add_argument(
+        "-o",
+        "--output",
+        dest="output_path",
+        help="Path to output karabiner.json file (default: ~/.config/karabiner/karabiner.json)",
+    )
+    generate_parser.add_argument("--no-backup", action="store_true", help="Skip creating backup of existing karabiner.json file")
+    generate_parser.set_defaults(func=cmd_generate)
+
+    # Tmux command group
+    tmux_parser = subparsers.add_parser("tmux", help="Tmux session management commands")
+    tmux_subparsers = tmux_parser.add_subparsers(dest="tmux_command", help="Tmux commands")
+
+    # Tmux switch command
+    tmux_switch_parser = tmux_subparsers.add_parser("switch", help="Switch to a tmux session")
+    tmux_switch_parser.add_argument("key", help="Key or index to identify the session in jumplist")
+    tmux_switch_parser.add_argument(
+        "--jumplist",
+        default=os.path.expanduser("~/.tmuxjumplist"),
+        help="Path to the tmux jumplist file (default: ~/.tmuxjumplist)"
+    )
+    tmux_switch_parser.add_argument(
+        "--terminal",
+        choices=["alacritty", "iterm2", "terminal", "ghostty"],
+        default="alacritty",
+        help="Terminal emulator to use (default: alacritty)"
+    )
+    tmux_switch_parser.set_defaults(func=cmd_tmux_switch)
+
+    args = parser.parse_args()
+
+    # If no command specified, check if first arg is a file (backward compatibility)
+    if not hasattr(args, 'func'):
+        if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+            # Backward compatibility: treat first argument as config file
+            args.config_path = sys.argv[1]
+            args.output_path = None
+            args.no_backup = False
+            args.func = cmd_generate
+        else:
+            parser.print_help()
+            sys.exit(1)
+
+    # Execute the command
+    args.func(args)
 
 
 if __name__ == "__main__":
