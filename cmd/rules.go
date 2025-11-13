@@ -16,7 +16,7 @@ func createHyperKeyRule(hyperKey string) Rule {
 				Type:        "basic",
 				Description: fmt.Sprintf("%s -> Hyper Key", hyperKey),
 				From: From{
-					KeyCode:   hyperKey,
+					KeyCode: hyperKey,
 				},
 				To: []To{
 					{SetVariable: &SetVariable{Name: "hyper", Value: 1}},
@@ -41,6 +41,9 @@ func createHHKBModeRule() Rule {
 				Description: "Caps Lock -> Left Control",
 				From: From{
 					KeyCode: "caps_lock",
+					Modifiers: &Modifiers{
+						Optional: []string{"any"},
+					},
 				},
 				To: []To{
 					{KeyCode: "left_control"},
@@ -59,6 +62,9 @@ func createDisableLeftCtrlRule() Rule {
 				Description: "Left Control -> None",
 				From: From{
 					KeyCode: "left_control",
+					Modifiers: &Modifiers{
+						Optional: []string{"any"},
+					},
 				},
 				To: []To{
 					{KeyCode: "vk_none"},
@@ -379,7 +385,7 @@ func createLayerRules(layers []LayerConfig) []Rule {
 			Type:        "basic",
 			Description: fmt.Sprintf("Toggle Hyper sublayer %s", key),
 			From: From{
-				KeyCode:   key,
+				KeyCode: key,
 			},
 			To: []To{
 				{SetVariable: &SetVariable{
@@ -419,7 +425,7 @@ func createLayerRules(layers []LayerConfig) []Rule {
 				Type:        "basic",
 				Description: "Open ",
 				From: From{
-					KeyCode:   subkey,
+					KeyCode: subkey,
 				},
 				To: []To{to},
 				Conditions: []Condition{
