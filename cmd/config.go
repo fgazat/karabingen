@@ -51,7 +51,7 @@ type Config struct {
 	Version            int               `yaml:"version"`
 	DisableCommandTab  bool              `yaml:"disable_command_tab"`
 	DisableLeftCtrl    bool              `yaml:"disable_left_ctrl"`
-	FixCC              *bool             `yaml:"fix_c_c"`
+	FixCC              bool             `yaml:"fix_c_c"`
 	UseHHKB            bool              `yaml:"use_hhkb"`
 	Hyperkey           string            `yaml:"hyperkey"`
 	Keybindings        KeybindingsConfig `yaml:"keybindings"`
