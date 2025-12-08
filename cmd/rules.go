@@ -449,7 +449,7 @@ func createLayerRules(layers []LayerConfig) []Rule {
 
 func createSwitchTabsRule() Rule {
 	return Rule{
-		Description: "Remap ⌘+⌥+H/L to switch tabs",
+		Description: "Remap ⌘+⌥+H/L/J/K to switch tabs",
 		Manipulators: []Manipulator{
 			{
 				Type:        "basic",
@@ -469,6 +469,32 @@ func createSwitchTabsRule() Rule {
 				Description: "⌘+⌥+h → Previous Tab (⌃+⇧+Tab)",
 				From: From{
 					KeyCode: "h",
+					Modifiers: &Modifiers{
+						Mandatory: []string{"command", "option"},
+					},
+				},
+				To: []To{
+					{KeyCode: "tab", Modifiers: []string{"control", "shift"}},
+				},
+			},
+			{
+				Type:        "basic",
+				Description: "⌘+⌥+j → Next Tab (⌃+Tab)",
+				From: From{
+					KeyCode: "j",
+					Modifiers: &Modifiers{
+						Mandatory: []string{"command", "option"},
+					},
+				},
+				To: []To{
+					{KeyCode: "tab", Modifiers: []string{"control"}},
+				},
+			},
+			{
+				Type:        "basic",
+				Description: "⌘+⌥+k → Previous Tab (⌃+⇧+Tab)",
+				From: From{
+					KeyCode: "k",
 					Modifiers: &Modifiers{
 						Mandatory: []string{"command", "option"},
 					},
