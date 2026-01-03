@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -86,7 +87,7 @@ func addBookmark(bookmarkFile string) error {
 	}
 
 	// Check if key already exists
-	if keyExists(usedKeys, key) {
+	if slices.Contains(usedKeys, key) {
 		fmt.Printf("Warning: key '%s' already exists in %s\n", key, bookmarkFile)
 		fmt.Print("Overwrite? (y/n/a - y:replace, n:cancel, a:append): ")
 		confirm, err := reader.ReadString('\n')
@@ -154,15 +155,6 @@ func getUsedKeys(bookmarkFile string) ([]string, error) {
 	}
 
 	return keys, nil
-}
-
-func keyExists(keys []string, key string) bool {
-	for _, k := range keys {
-		if k == key {
-			return true
-		}
-	}
-	return false
 }
 
 func removeKeyFromFile(bookmarkFile, keyToRemove string) error {
