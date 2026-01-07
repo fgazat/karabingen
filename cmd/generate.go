@@ -115,6 +115,13 @@ func generateKarabinerConfig(configPath, outputPath string, noBackup bool) error
 				config.FixG502.ForwardButton,
 			)
 		}},
+		{config.QuickAppSwitch.Enable, func() Rule {
+			return createQuickAppSwitchRule(
+				config.QuickAppSwitch.Modifiers,
+				config.QuickAppSwitch.BackKey,
+				config.QuickAppSwitch.ForwardKey,
+			)
+		}},
 	}
 
 	for _, opt := range optionalRules {

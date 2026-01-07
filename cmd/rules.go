@@ -447,6 +447,40 @@ func createLayerRules(layers []LayerConfig) []Rule {
 	return rules
 }
 
+func createQuickAppSwitchRule(modifiers []string, backKey, forwardKey string) Rule {
+	return Rule{
+		Description: "Quick App Switch (cycle through apps without window)",
+		Manipulators: []Manipulator{
+			{
+				Type:        "basic",
+				Description: fmt.Sprintf("%s+%s → Previous App", strings.Join(modifiers, "+"), backKey),
+				From: From{
+					KeyCode: backKey,
+					Modifiers: &Modifiers{
+						Mandatory: modifiers,
+					},
+				},
+				To: []To{
+					{KeyCode: "tab", Modifiers: []string{"command", "shift"}},
+				},
+			},
+			{
+				Type:        "basic",
+				Description: fmt.Sprintf("%s+%s → Next App", strings.Join(modifiers, "+"), forwardKey),
+				From: From{
+					KeyCode: forwardKey,
+					Modifiers: &Modifiers{
+						Mandatory: modifiers,
+					},
+				},
+				To: []To{
+					{KeyCode: "tab", Modifiers: []string{"command"}},
+				},
+			},
+		},
+	}
+}
+
 func createSwitchTabsRule() Rule {
 	return Rule{
 		Description: "Remap ⌘+⌥+H/L/J/K to switch tabs",

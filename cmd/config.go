@@ -40,6 +40,14 @@ type FixG502Config struct {
 	ForwardButton string `yaml:"forward_button"`
 }
 
+// QuickAppSwitchConfig represents quick app switching configuration
+type QuickAppSwitchConfig struct {
+	Enable     bool     `yaml:"enable"`
+	Modifiers  []string `yaml:"modifiers"`
+	BackKey    string   `yaml:"back_key"`    // Key for previous app (default: "o")
+	ForwardKey string   `yaml:"forward_key"` // Key for next app (default: "i")
+}
+
 // KeybindingsConfig represents all keybindings configuration
 type KeybindingsConfig struct {
 	Option map[string]KeyBinding `yaml:"option"`
@@ -48,16 +56,17 @@ type KeybindingsConfig struct {
 
 // Config represents the complete configuration
 type Config struct {
-	Version            int               `yaml:"version"`
-	DisableCommandTab  bool              `yaml:"disable_command_tab"`
-	DisableLeftCtrl    bool              `yaml:"disable_left_ctrl"`
-	FixCC              bool             `yaml:"fix_c_c"`
-	UseHHKB            bool              `yaml:"use_hhkb"`
-	Hyperkey           string            `yaml:"hyperkey"`
-	Keybindings        KeybindingsConfig `yaml:"keybindings"`
-	TmuxJump           TmuxJumpConfig    `yaml:"tmux_jump"`
-	FixG502            FixG502Config     `yaml:"fix_g502"`
-	SwitchSafariTabsHL bool              `yaml:"switch_safari_tabs_hl"`
+	Version            int                  `yaml:"version"`
+	DisableCommandTab  bool                 `yaml:"disable_command_tab"`
+	DisableLeftCtrl    bool                 `yaml:"disable_left_ctrl"`
+	FixCC              bool                 `yaml:"fix_c_c"`
+	UseHHKB            bool                 `yaml:"use_hhkb"`
+	Hyperkey           string               `yaml:"hyperkey"`
+	Keybindings        KeybindingsConfig    `yaml:"keybindings"`
+	TmuxJump           TmuxJumpConfig       `yaml:"tmux_jump"`
+	FixG502            FixG502Config        `yaml:"fix_g502"`
+	SwitchSafariTabsHL bool                 `yaml:"switch_safari_tabs_hl"`
+	QuickAppSwitch     QuickAppSwitchConfig `yaml:"quick_app_switch"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -77,6 +86,9 @@ func loadConfig(path string) (*Config, error) {
 	config.FixG502.SafariOnly = true
 	config.FixG502.BackButton = "button4"
 	config.FixG502.ForwardButton = "button5"
+	config.QuickAppSwitch.Modifiers = []string{"option"}
+	config.QuickAppSwitch.BackKey = "o"
+	config.QuickAppSwitch.ForwardKey = "i"
 
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
