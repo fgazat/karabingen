@@ -12,6 +12,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type bookmark struct {
+	Key  string
+	Name string
+	Path string
+}
+
 var bookmarkTmuxCmd = &cobra.Command{
 	Use:   "bookmark [jumplist_file]",
 	Short: "Add current directory to tmux jump list",
@@ -61,15 +67,47 @@ func addBookmark(bookmarkFile string) error {
 	// Get directory name
 	name := filepath.Base(pwd)
 
-	// Read existing bookmarks to find used keys
-	usedKeys, err := getUsedKeys(bookmarkFile)
+	// Read existing bookmarks
+	bookmarks, err := getBookmarks(bookmarkFile)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to read bookmark file: %w", err)
 	}
 
-	// Display used keys if any
-	if len(usedKeys) > 0 {
-		fmt.Printf("Already used keys: %s\n", strings.Join(usedKeys, " "))
+	// Display existing bookmarks if any
+	if len(bookmarks) > 0 {
+		// Sort bookmarks: numbers first, then letters
+		slices.SortFunc(bookmarks, func(a, b bookmark) int {
+			ka, kb := a.Key, b.Key
+			isNumA := ka >= "0" && ka <= "9"
+			isNumB := kb >= "0" && kb <= "9"
+
+			if isNumA && !isNumB {
+				return -1
+			}
+			if !isNumA && isNumB {
+				return 1
+			}
+			if ka < kb {
+				return -1
+			}
+			if ka > kb {
+				return 1
+			}
+			return 0
+		})
+
+		// Find max name length for alignment
+		maxNameLen := 0
+		for _, b := range bookmarks {
+			if len(b.Name) > maxNameLen {
+				maxNameLen = len(b.Name)
+			}
+		}
+
+		fmt.Println("Existing bookmarks:")
+		for _, b := range bookmarks {
+			fmt.Printf("  %s:\t%-*s\t%s\n", b.Key, maxNameLen, b.Name, b.Path)
+		}
 	}
 
 	// Prompt for key
@@ -87,7 +125,11 @@ func addBookmark(bookmarkFile string) error {
 	}
 
 	// Check if key already exists
-	if slices.Contains(usedKeys, key) {
+	existingKeys := make([]string, len(bookmarks))
+	for i, b := range bookmarks {
+		existingKeys[i] = b.Key
+	}
+	if slices.Contains(existingKeys, key) {
 		fmt.Printf("Warning: key '%s' already exists in %s\n", key, bookmarkFile)
 		fmt.Print("Overwrite? (y/n/a - y:replace, n:cancel, a:append): ")
 		confirm, err := reader.ReadString('\n')
@@ -126,21 +168,25 @@ func addBookmark(bookmarkFile string) error {
 	return nil
 }
 
-func getUsedKeys(bookmarkFile string) ([]string, error) {
+func getBookmarks(bookmarkFile string) ([]bookmark, error) {
 	file, err := os.Open(bookmarkFile)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	keyRegex := regexp.MustCompile(`^([0-9a-zA-Z]+):`)
-	keysMap := make(map[string]bool)
+	bookmarkRegex := regexp.MustCompile(`^([0-9a-zA-Z]+):([^:]+):(.+)$`)
+	var bookmarks []bookmark
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if matches := keyRegex.FindStringSubmatch(line); len(matches) > 1 {
-			keysMap[matches[1]] = true
+		if matches := bookmarkRegex.FindStringSubmatch(line); len(matches) == 4 {
+			bookmarks = append(bookmarks, bookmark{
+				Key:  matches[1],
+				Name: matches[2],
+				Path: matches[3],
+			})
 		}
 	}
 
@@ -148,13 +194,7 @@ func getUsedKeys(bookmarkFile string) ([]string, error) {
 		return nil, err
 	}
 
-	// Convert map to sorted slice
-	keys := make([]string, 0, len(keysMap))
-	for key := range keysMap {
-		keys = append(keys, key)
-	}
-
-	return keys, nil
+	return bookmarks, nil
 }
 
 func removeKeyFromFile(bookmarkFile, keyToRemove string) error {
