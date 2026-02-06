@@ -134,12 +134,10 @@ func createFixG502Rule(safariOnly bool, backButton, forwardButton string) Rule {
 	}
 }
 
-func createOptionKeybindingRule(key string, binding KeyBinding) Rule {
-	var to To
-
+func bindingToTo(binding KeyBinding) To {
 	switch binding.Type {
 	case "app":
-		to = To{
+		return To{
 			SoftwareFunction: &SoftwareFunction{
 				OpenApplication: &OpenApplication{
 					FilePath: binding.Val,
@@ -147,15 +145,19 @@ func createOptionKeybindingRule(key string, binding KeyBinding) Rule {
 			},
 		}
 	case "web":
-		to = To{
+		return To{
 			ShellCommand: fmt.Sprintf("open %s", binding.Val),
 		}
 	case "shell":
-		to = To{
+		return To{
 			ShellCommand: binding.Val,
 		}
+	default:
+		return To{}
 	}
+}
 
+func createOptionKeybindingRule(key string, binding KeyBinding) Rule {
 	return Rule{
 		Description: "Open TBD",
 		Manipulators: []Manipulator{
@@ -168,9 +170,75 @@ func createOptionKeybindingRule(key string, binding KeyBinding) Rule {
 						Optional:  []string{"caps_lock"},
 					},
 				},
-				To: []To{to},
+				To: []To{bindingToTo(binding)},
 			},
 		},
+	}
+}
+
+// createSublayerRule creates a sublayer rule for any modifier key.
+// modifierPrefix is used for variable naming (e.g. "option"), modifiers are the
+// Karabiner modifier keys required to activate the toggle (e.g. []string{"left_option"}).
+func createSublayerRule(key string, binding KeyBinding, allSublayerKeys []string, modifierPrefix string, modifiers []string) Rule {
+	variableName := fmt.Sprintf("%s_sublayer_%s", modifierPrefix, key)
+
+	// Build mutual exclusion conditions
+	otherLayerConditions := []Condition{}
+	for _, k := range allSublayerKeys {
+		if k != key {
+			otherLayerConditions = append(otherLayerConditions, Condition{
+				Type:  "variable_if",
+				Name:  fmt.Sprintf("%s_sublayer_%s", modifierPrefix, k),
+				Value: 0,
+			})
+		}
+	}
+
+	toggleManipulator := Manipulator{
+		Type:        "basic",
+		Description: fmt.Sprintf("Toggle %s sublayer %s", modifierPrefix, key),
+		From: From{
+			KeyCode: key,
+			Modifiers: &Modifiers{
+				Mandatory: modifiers,
+				Optional:  []string{"caps_lock"},
+			},
+		},
+		To: []To{
+			{SetVariable: &SetVariable{Name: variableName, Value: 1}},
+		},
+		ToAfterKeyUp: []To{
+			{SetVariable: &SetVariable{Name: variableName, Value: 0}},
+		},
+		Conditions: otherLayerConditions,
+	}
+
+	manipulators := []Manipulator{toggleManipulator}
+
+	for subKey, subBinding := range binding.Sub {
+		manipulators = append(manipulators, Manipulator{
+			Type:        "basic",
+			Description: fmt.Sprintf("%s+%s+%s", modifierPrefix, key, subKey),
+			From: From{
+				KeyCode: subKey,
+				Modifiers: &Modifiers{
+					Optional: modifiers,
+				},
+			},
+			To: []To{bindingToTo(subBinding)},
+			Conditions: []Condition{
+				{
+					Type:  "variable_if",
+					Name:  variableName,
+					Value: 1,
+				},
+			},
+		})
+	}
+
+	return Rule{
+		Description:  fmt.Sprintf("%s sublayer \"%s\"", modifierPrefix, key),
+		Manipulators: manipulators,
 	}
 }
 

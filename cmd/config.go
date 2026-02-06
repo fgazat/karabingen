@@ -20,8 +20,9 @@ func expandTilde(path string) string {
 
 // KeyBinding represents a single key binding configuration
 type KeyBinding struct {
-	Type string `yaml:"type"` // "app", "web", or "shell"
-	Val  string `yaml:"val"`
+	Type string                `yaml:"type"` // "app", "web", "shell", or "layer" (v2 only)
+	Val  string                `yaml:"val"`
+	Sub  map[string]KeyBinding `yaml:"sub"` // only used when Type == "layer"
 }
 
 // LayerConfig represents a hyperkey layer configuration
@@ -106,8 +107,28 @@ func loadConfig(path string) (*Config, error) {
 	}
 
 	// Validate version
-	if config.Version != 1 {
-		return nil, fmt.Errorf("unsupported config version: %d (supported: 1)", config.Version)
+	if config.Version != 1 && config.Version != 2 {
+		return nil, fmt.Errorf("unsupported config version: %d (supported: 1, 2)", config.Version)
+	}
+
+	// Validate option keybindings
+	for key, binding := range config.Keybindings.Option {
+		if binding.Type == "layer" {
+			if config.Version < 2 {
+				return nil, fmt.Errorf("option key '%s' has type 'layer' which requires version: 2", key)
+			}
+			if len(binding.Sub) == 0 {
+				return nil, fmt.Errorf("option key '%s' has type 'layer' but no sub-bindings", key)
+			}
+			for subKey, subBinding := range binding.Sub {
+				if subBinding.Type == "layer" {
+					return nil, fmt.Errorf("option key '%s' sub-key '%s' cannot be a layer (nested layers not supported)", key, subKey)
+				}
+				if subBinding.Val == "" {
+					return nil, fmt.Errorf("option key '%s' sub-key '%s' has empty val", key, subKey)
+				}
+			}
+		}
 	}
 
 	// Process all_letters_except or all_letters

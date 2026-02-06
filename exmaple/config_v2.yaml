@@ -1,0 +1,75 @@
+version: 2
+disable_command_tab: true
+fix_c_c: true
+use_hhkb: true
+disable_left_ctrl: true
+switch_safari_tabs_hl: true
+quick_app_switch:
+  enable: true
+  modifiers: ['option']
+  back_key: 'o'      # Previous app (like Cmd+Shift+Tab)
+  forward_key: 'i'   # Next app (like Cmd+Tab)
+tmux_jump:
+  enable: true
+  terminal: alacritty # or terminal, iterm2, ghostty
+  jumplist_path: ~/.tmuxjumplist
+  modifiers: ['right_command']
+  all_letters: true
+fix_g502:
+  enable: true
+  safari_only: true
+  back_button: button4
+  forward_button: button5
+keybindings:
+  option:
+    '1':
+      val: '/Applications/Safari.app'
+      type: 'app'
+    '2':
+      val: '/Applications/Alacritty.app'
+      type: 'app'
+    '3':
+      val: '/Applications/Bear.app'
+      type: 'app'
+    'o':
+      type: layer
+      sub:
+        t:
+          val: '/Applications/Telegram.app'
+          type: app
+        s:
+          val: '/Applications/Safari.app'
+          type: app
+        c:
+          val: '/Applications/Visual Studio Code.app'
+          type: app
+        b:
+          val: '/Applications/Bear.app'
+          type: app
+        p:
+          val: '/Applications/Postman.app'
+          type: app
+        f:
+          val: '/System/Library/CoreServices/Finder.app'
+          type: app
+        z:
+          val: '/Applications/Zen Browser.app'
+          type: app
+    'w':
+      type: layer
+      sub:
+        g:
+          val: 'https://chatgpt.com/'
+          type: web
+        r:
+          val: 'https://reddit.com/'
+          type: web
+        y:
+          val: 'https://news.ycombinator.com'
+          type: web
+        p:
+          val: 'https://mxstbr.com/'
+          type: web
+        x:
+          val: 'https://x.com/'
+          type: web

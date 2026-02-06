@@ -89,15 +89,20 @@ func generateKarabinerConfig(configPath, outputPath string, noBackup bool) error
 	// Generate complex modification rules
 	rules := []Rule{}
 
-	// Add HHKB mode if requested
+	// HHKB mode (caps_lock → left_control) works in both versions
 	if config.UseHHKB {
 		rules = append(rules, createHHKBModeRule())
-		// If hyperkey is not caps_lock, add hyperkey rule
-		if config.Hyperkey != "caps_lock" {
+	}
+
+	// v1: hyperkey variable toggle; v2: no hyperkey (sublayers use option instead)
+	if config.Version == 1 {
+		if config.UseHHKB {
+			if config.Hyperkey != "caps_lock" {
+				rules = append(rules, createHyperKeyRule(config.Hyperkey))
+			}
+		} else {
 			rules = append(rules, createHyperKeyRule(config.Hyperkey))
 		}
-	} else {
-		rules = append(rules, createHyperKeyRule(config.Hyperkey))
 	}
 
 	// Apply optional rules based on config
@@ -140,15 +145,35 @@ func generateKarabinerConfig(configPath, outputPath string, noBackup bool) error
 	}
 
 	// Option keybindings
-	for key, binding := range config.Keybindings.Option {
-		rules = append(rules, createOptionKeybindingRule(key, binding))
+	if config.Version == 2 {
+		// Collect sublayer keys for mutual exclusion
+		sublayerKeys := []string{}
+		for key, binding := range config.Keybindings.Option {
+			if binding.Type == "layer" {
+				sublayerKeys = append(sublayerKeys, key)
+			}
+		}
+
+		for key, binding := range config.Keybindings.Option {
+			if binding.Type == "layer" {
+				rules = append(rules, createSublayerRule(key, binding, sublayerKeys, "option", []string{"left_option"}))
+			} else {
+				rules = append(rules, createOptionKeybindingRule(key, binding))
+			}
+		}
+	} else {
+		for key, binding := range config.Keybindings.Option {
+			rules = append(rules, createOptionKeybindingRule(key, binding))
+		}
 	}
 
 	// HJKL arrow keys
 	rules = append(rules, createHJKLRule())
 
-	// Layer rules
-	rules = append(rules, createLayerRules(config.Keybindings.Layers)...)
+	// v1: layer rules from keybindings.layers; v2: skipped
+	if config.Version == 1 {
+		rules = append(rules, createLayerRules(config.Keybindings.Layers)...)
+	}
 
 	// Set rules in profile
 	profile.ComplexModifications.Rules = rules
