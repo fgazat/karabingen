@@ -279,13 +279,7 @@ func createTmuxJumpRule(config *Config) (Rule, error) {
 	}
 
 	// Expand tilde in jumplist path
-	jumplistPath := tmuxConfig.JumplistPath
-	if strings.HasPrefix(jumplistPath, "~/") {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			jumplistPath = filepath.Join(home, jumplistPath[2:])
-		}
-	}
+	jumplistPath := expandTilde(tmuxConfig.JumplistPath)
 
 	var editCmd string
 	switch tmuxConfig.Terminal {
@@ -407,7 +401,8 @@ func createLayerRules(layers []LayerConfig) []Rule {
 		// Sub-key manipulators
 		for subkey, val := range subBindings {
 			var to To
-			if layerType == "app" {
+			switch layerType {
+			case "app":
 				to = To{
 					SoftwareFunction: &SoftwareFunction{
 						OpenApplication: &OpenApplication{
@@ -415,10 +410,8 @@ func createLayerRules(layers []LayerConfig) []Rule {
 						},
 					},
 				}
-			} else if layerType == "web" {
-				to = To{
-					ShellCommand: fmt.Sprintf("open %s", val),
-				}
+			case "web":
+				to = To{ShellCommand: fmt.Sprintf("open %s", val)}
 			}
 
 			manipulators = append(manipulators, Manipulator{

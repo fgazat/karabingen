@@ -50,13 +50,7 @@ func switchTmuxSession(key, tmuxPath, jumplistPath, terminal string) error {
 	}
 
 	// Expand home directory in jumplist path
-	if strings.HasPrefix(jumplistPath, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
-		}
-		jumplistPath = filepath.Join(home, jumplistPath[2:])
-	}
+	jumplistPath = expandTilde(jumplistPath)
 
 	// Read jumplist file
 	sessions, err := readJumplist(jumplistPath)
@@ -74,11 +68,7 @@ func switchTmuxSession(key, tmuxPath, jumplistPath, terminal string) error {
 			sessionName = strings.TrimSpace(parts[1])
 			// Directory is optional third part
 			if len(parts) >= 3 {
-				directory = strings.TrimSpace(parts[2])
-				if strings.HasPrefix(directory, "~/") {
-					home, _ := os.UserHomeDir()
-					directory = filepath.Join(home, directory[2:])
-				}
+				directory = expandTilde(strings.TrimSpace(parts[2]))
 			}
 			break
 		}
@@ -141,13 +131,7 @@ func readJumplist(path string) ([]string, error) {
 
 func editJumplist(jumplistPath, terminal string) error {
 	// Expand home directory
-	if strings.HasPrefix(jumplistPath, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		jumplistPath = filepath.Join(home, jumplistPath[2:])
-	}
+	jumplistPath = expandTilde(jumplistPath)
 
 	editor := os.Getenv("EDITOR")
 	if editor == "" {

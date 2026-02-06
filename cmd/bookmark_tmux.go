@@ -45,13 +45,7 @@ Where:
 		}
 
 		// Expand home directory in path
-		if strings.HasPrefix(bookmarkFile, "~/") {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("failed to get home directory: %w", err)
-			}
-			bookmarkFile = filepath.Join(home, bookmarkFile[2:])
-		}
+		bookmarkFile = expandTilde(bookmarkFile)
 
 		return addBookmark(bookmarkFile)
 	},
