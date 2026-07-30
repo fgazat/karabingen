@@ -80,10 +80,16 @@ type OpenApplication struct {
 }
 
 type Condition struct {
-	Type              string   `json:"type"`
-	Name              string   `json:"name,omitempty"`
-	Value             int      `json:"value"`
-	BundleIdentifiers []string `json:"bundle_identifiers,omitempty"`
+	Type              string             `json:"type"`
+	Name              string             `json:"name,omitempty"`
+	Value             int                `json:"value"`
+	BundleIdentifiers []string           `json:"bundle_identifiers,omitempty"`
+	Identifiers       []DeviceIdentifier `json:"identifiers,omitempty"`
+}
+
+type DeviceIdentifier struct {
+	VendorID  int `json:"vendor_id,omitempty"`
+	ProductID int `json:"product_id,omitempty"`
 }
 
 type KarabinerConfig struct {

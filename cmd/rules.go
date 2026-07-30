@@ -8,6 +8,20 @@ import (
 	"strings"
 )
 
+const (
+	hhkbVendorID  = 1278
+	hhkbProductID = 33
+)
+
+func unlessHHKB() Condition {
+	return Condition{
+		Type: "device_unless",
+		Identifiers: []DeviceIdentifier{
+			{VendorID: hhkbVendorID, ProductID: hhkbProductID},
+		},
+	}
+}
+
 func createHyperKeyRule(hyperKey string) Rule {
 	return Rule{
 		Description: fmt.Sprintf("Hyper Key (%s)", hyperKey),
@@ -34,7 +48,7 @@ func createHyperKeyRule(hyperKey string) Rule {
 
 func createHHKBModeRule() Rule {
 	return Rule{
-		Description: "HHKB Mode (Caps Lock -> Left Control)",
+		Description: "HHKB Mode (Caps Lock -> Left Control, non-HHKB only)",
 		Manipulators: []Manipulator{
 			{
 				Type:        "basic",
@@ -48,6 +62,7 @@ func createHHKBModeRule() Rule {
 				To: []To{
 					{KeyCode: "left_control"},
 				},
+				Conditions: []Condition{unlessHHKB()},
 			},
 		},
 	}
@@ -55,7 +70,7 @@ func createHHKBModeRule() Rule {
 
 func createDisableLeftCtrlRule() Rule {
 	return Rule{
-		Description: "Disable Left Control",
+		Description: "Disable Left Control (non-HHKB only)",
 		Manipulators: []Manipulator{
 			{
 				Type:        "basic",
@@ -69,6 +84,7 @@ func createDisableLeftCtrlRule() Rule {
 				To: []To{
 					{KeyCode: "vk_none"},
 				},
+				Conditions: []Condition{unlessHHKB()},
 			},
 		},
 	}
